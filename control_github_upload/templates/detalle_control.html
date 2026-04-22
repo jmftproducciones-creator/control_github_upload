@@ -1,0 +1,711 @@
+{% extends 'base.html' %}
+{% block title %}Detalle de control{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Detalle del control #{{ control.id }}</h2>
+        <p class="text-muted mb-0">Resumen completo del control cargado</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if g.user.rol in ['superadmin', 'admin'] %}
+        <a href="{{ url_for('editar_control', control_id=control.id) }}" class="btn btn-outline-warning">
+            <i class="bi bi-pencil me-1"></i> Editar
+        </a>
+        {% endif %}
+        {% if g.user.rol == 'superadmin' %}
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEliminar">
+            <i class="bi bi-trash me-1"></i> Eliminar
+        </button>
+        {% endif %}
+        <a href="{{ url_for('historial') }}" class="btn btn-outline-secondary">Volver</a>
+    </div>
+</div>
+
+<!-- Modal Eliminar -->
+<div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('eliminar_control', control_id=control.id) }}" method="post">
+                <div class="modal-body">
+                    <p class="text-danger fw-bold">Atención: Esta acción es irreversible.</p>
+                    <p>Se eliminarán todos los registros asociados a este control y se restaurará el evento en el cronograma a estado "Pendiente".</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cónfirmar con tu contraseña de Superadmin:</label>
+                        <input type="password" name="password" class="form-control" required placeholder="Ingresa tu clave">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar Definitivamente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    {% if control.tipo_control == 'A' %}
+    
+    {% if control.estado_flujo == 'A Confirmar' and g.user.rol == 'superadmin' %}
+    <div class="col-12">
+        <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill text-warning fs-3 me-3"></i>
+                <div>
+                    <h5 class="mb-1 fw-bold">Auditoría Pendiente de Confirmación</h5>
+                    <p class="mb-0 opacity-75">Como responsable de calidad, puedes confirmar esta auditoría o reprogramarla asignando nuevas fechas.</p>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <form action="{{ url_for('confirmar_auditoria', control_id=control.id) }}" method="POST" class="m-0">
+                    <button type="submit" class="btn btn-success fw-bold px-4 shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar</button>
+                </form>
+                <button type="button" class="btn btn-outline-dark fw-bold px-4 bg-white" data-bs-toggle="modal" data-bs-target="#modalReprogramar">
+                    <i class="bi bi-calendar-event me-2"></i>Reprogramar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Reprogramar -->
+    <div class="modal fade" id="modalReprogramar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title text-dark fw-bold"><i class="bi bi-calendar-event me-2"></i>Reprogramar Auditoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('reprogramar_auditoria', control_id=control.id) }}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nueva Fecha de Inicio</label>
+                            <input type="date" name="nueva_fecha_inicio" class="form-control" value="{{ control.fecha_control }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nueva Fecha de Fin (opcional)</label>
+                            <input type="date" name="nueva_fecha_fin" class="form-control" value="{{ control.fecha_fin_control or control.fecha_control }}">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top-0">
+                        <button type="button" class="btn btn-light text-dark fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning fw-bold text-dark px-4 shadow-sm">Guardar y Notificar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% elif control.estado_flujo == 'A Confirmar' %}
+    <div class="col-12">
+        <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4">
+            <i class="bi bi-info-circle-fill text-info fs-3 me-3"></i>
+            <div>
+                <h6 class="mb-0 fw-bold">Auditoría Pendiente de Confirmación</h6>
+                <p class="mb-0 opacity-75 small">Esta auditoría está a la espera de ser confirmada por el área de Calidad.</p>
+            </div>
+        </div>
+    </div>
+    {% elif control.estado_flujo == 'Confirmada' %}
+    <div class="col-12">
+        <div class="alert alert-success border-0 shadow-sm d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-check-circle-fill text-success fs-3 me-3"></i>
+                <div>
+                    <h6 class="mb-0 fw-bold">Auditoría Confirmada</h6>
+                    <p class="mb-0 opacity-75 small">La auditoría ya fue confirmada. El equipo auditor debe completar el plan.</p>
+                </div>
+            </div>
+            {% if can_manage_audit_plan %}
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('plan_auditoria', control_id=control.id) }}" class="btn btn-outline-success fw-bold px-4 shadow-sm bg-white">
+                    <i class="bi bi-journal-text me-2"></i> {% if control.objetivo_auditoria %}Editar Plan{% else %}Completar Plan{% endif %}
+                </a>
+                {% if control.objetivo_auditoria %}
+                <a href="{{ url_for('informe_auditoria', control_id=control.id) }}" class="btn btn-primary fw-bold px-4 shadow-sm">
+                    <i class="bi bi-file-earmark-check me-2"></i> {% if control.conclusiones_auditoria %}Ver/Editar Informe{% else %}Generar Informe{% endif %}
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="col-12">
+        <div class="card border-primary border-0 shadow-sm overflow-hidden mb-4">
+            <div class="card-body bg-primary bg-opacity-10 d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary text-white rounded-circle p-3 me-4 shadow-sm">
+                        <i class="bi bi-shield-check fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="text-primary fw-bold mb-1">Resumen de Auditoría</h5>
+                        <div class="d-flex flex-wrap gap-4 mt-2">
+                            <div><small class="text-muted d-block">Periodo</small> <strong>{{ control.fecha_control }}{% if control.fecha_fin_control %} al {{ control.fecha_fin_control }}{% endif %}</strong></div>
+                            <div><small class="text-muted d-block">Plaza / Sector</small> <strong>{{ control.planta }} - {{ control.sector }}</strong></div>
+                            <div><small class="text-muted d-block">Responsable Área</small> <strong>{{ control.responsable or 'No Asignado' }}</strong></div>
+                            <div><small class="text-muted d-block">Auditor Jefe</small> <strong>{{ control.auditor_jefe or 'N/A' }}</strong></div>
+                            {% if control.auditor_acompanante %}
+                            <div><small class="text-muted d-block">Acompañante</small> <strong>{{ control.auditor_acompanante }}</strong></div>
+                            {% endif %}
+                            {% if control.auditor_formacion %}
+                            <div><small class="text-muted d-block">Formación</small> <strong class="text-secondary small">{{ control.auditor_formacion }}</strong></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if control.riesgos_pdf_path %}
+                <div class="ps-4 border-start border-primary border-opacity-25">
+                    <a href="{{ url_for('static', filename='uploads/' + control.riesgos_pdf_path) }}" class="btn btn-primary rounded-pill px-4 shadow-sm" target="_blank">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> Ver Evaluación de Riesgos
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if control.objetivo_auditoria %}
+    <div class="col-12">
+        <div class="card border-info border-0 shadow-sm overflow-hidden mb-4">
+            <div class="card-header bg-info bg-opacity-10 py-3 border-0">
+                <h5 class="text-info fw-bold mb-0"><i class="bi bi-journal-check me-2"></i>Plan de Auditoría Interna</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Sistema de Gestión</small>
+                        <strong>{{ control.sistema_gestion_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Objetivo</small>
+                        <strong>{{ control.objetivo_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Criterios</small>
+                        <strong>{{ control.criterios_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Recursos Necesarios</small>
+                        <strong>{{ control.recursos_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted d-block">Descripción de Actividades</small>
+                        <strong>{{ control.descripcion_actividades_auditoria or '-' }}</strong>
+                    </div>
+                </div>
+            </div>
+            {% if agenda_auditoria %}
+            <div class="card-footer bg-transparent border-top py-4">
+                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-list-task me-2"></i>Agenda de Auditoría Establecida</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Día</th>
+                                <th>Hora</th>
+                                <th>Actividad/Proceso</th>
+                                <th>Lugar</th>
+                                <th>Auditor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in agenda_auditoria %}
+                            <tr>
+                                <td>{{ row.dia }}</td>
+                                <td>{{ row.hora }}</td>
+                                <td>{{ row.actividad }}</td>
+                                <td>{{ row.lugar }}</td>
+                                <td>{{ row.auditor }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% elif control.agenda_auditoria_path %}
+            <div class="card-footer bg-light border-0 py-3">
+                <a href="{{ url_for('static', filename=control.agenda_auditoria_path) }}" class="btn btn-outline-info rounded-pill px-4" target="_blank">
+                    <i class="bi bi-calendar-event me-2"></i>Descargar Agenda de Auditoría (Documento Antiguo)
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if control.conclusiones_auditoria %}
+    <div class="col-12">
+        <div class="card border-primary border-0 shadow-sm overflow-hidden mb-4">
+            <div class="card-header bg-primary text-white py-3 border-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Informe de Resultados de Auditoría</h5>
+                {% if can_manage_audit_plan %}
+                <a href="{{ url_for('informe_auditoria', control_id=control.id) }}" class="btn btn-sm btn-light fw-bold">
+                    <i class="bi bi-pencil-square me-1"></i> Editar Informe
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if control.fortalezas_auditoria %}
+                <div class="mb-4">
+                    <h6 class="text-success fw-bold"><i class="bi bi-star-fill me-2"></i>Fortalezas Identificadas</h6>
+                    <div class="p-3 bg-light rounded text-secondary border-start border-success border-4" style="white-space: pre-wrap;">{{ control.fortalezas_auditoria }}</div>
+                </div>
+                {% endif %}
+
+                {% if hallazgos %}
+                <h6 class="text-warning fw-bold mb-3"><i class="bi bi-search me-2"></i>Hallazgos Registrados</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-sm align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th style="width: 20%">Requisito</th>
+                                <th style="width: 15%">Tipo</th>
+                                <th>Desvío / Evidencia</th>
+                                <th style="width: 12%" class="text-center"><i class="bi bi-gear"></i></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for h in hallazgos %}
+                            <tr
+                                {% if h.accion_correctiva_id %}
+                                class="hallazgo-clickable"
+                                data-href="{{ url_for('accion_correctiva', ac_id=h.accion_correctiva_id) }}"
+                                title="Ver Acción Correctiva"
+                                {% elif can_create_capa and ('No Conformidad' in h.tipo_hallazgo) %}
+                                class="hallazgo-clickable"
+                                data-href="{{ url_for('nueva_accion_correctiva', hallazgo_id=h.id) }}"
+                                title="Generar Acción Correctiva"
+                                {% endif %}
+                            >
+                                <td>{{ h.requisito }}</td>
+                                <td>
+                                    <span class="badge {% if 'No Conformidad Mayor' in h.tipo_hallazgo %}bg-danger{% elif 'No Conformidad Menor' in h.tipo_hallazgo %}bg-warning text-dark{% elif 'Observación' in h.tipo_hallazgo %}bg-info text-dark{% elif 'Fortaleza' in h.tipo_hallazgo %}bg-success{% elif 'Conformidad' in h.tipo_hallazgo %}bg-success{% else %}bg-secondary{% endif %}">
+                                        {{ h.tipo_hallazgo }}
+                                    </span>
+                                </td>
+                                <td style="white-space: pre-wrap;">{{ h.descripcion }}</td>
+                                <td class="text-center">
+                                    {% if h.accion_correctiva_id %}
+                                    <a href="{{ url_for('accion_correctiva', ac_id=h.accion_correctiva_id) }}" class="btn btn-sm w-100 {% if h.ac_estado == 'CERRADO' %}btn-outline-success{% else %}btn-outline-primary{% endif %}" title="Ver Acción Correctiva">
+                                        <i class="bi bi-diagram-3"></i> CAPA
+                                    </a>
+                                    {% elif can_create_capa and ('No Conformidad' in h.tipo_hallazgo) %}
+                                    <a href="{{ url_for('nueva_accion_correctiva', hallazgo_id=h.id) }}" class="btn btn-sm btn-primary w-100" title="Generar Acción Correctiva">
+                                        <i class="bi bi-plus-circle"></i> CAPA
+                                    </a>
+                                    {% else %}
+                                    <span class="badge bg-light text-muted border">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                <div class="mb-2">
+                    <h6 class="text-primary fw-bold"><i class="bi bi-chat-quote-fill me-2"></i>Conclusiones Generales</h6>
+                    <div class="p-3 bg-primary bg-opacity-10 rounded text-dark border-start border-primary border-4" style="white-space: pre-wrap;">{{ control.conclusiones_auditoria }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if control.tipo_control != 'A' %}
+    <div class="col-lg-8">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-3">Datos generales</h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <strong>Fecha</strong>
+                        <div>{{ control.fecha_control }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Planta</strong>
+                        <div>{{ control.planta }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Sector</strong>
+                        <div>{{ control.sector }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Responsable</strong>
+                        <div>{{ control.responsable.strip() if control.responsable else '-' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Sector con químicos</strong>
+                        <div>{{ 'Sí' if control.sector_tiene_quimicos else 'No' }}</div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <strong>Observaciones generales</strong>
+                <div class="mt-2">
+                    {{ control.observaciones_generales or 'Sin observaciones.' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-3">Resumen</h5>
+                <div class="mb-3">
+                    <strong>Personas entrevistadas:</strong> {{ control.total_personas_entrevistadas }}
+                </div>
+                <div class="mb-3">
+                    <strong>Requieren capacitación:</strong> {{ control.total_requieren_capacitacion }}
+                </div>
+                <div class="mb-3">
+                    <strong>Documentos controlados:</strong> {{ control.total_documentos_controlados }}
+                </div>
+                <div class="mb-3">
+                    <strong>Documentos correctos:</strong> {{ control.total_documentos_correctos }}
+                </div>
+                <div class="mb-0">
+                    <strong>Documentos incorrectos:</strong> {{ control.total_documentos_incorrectos }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% if control.tipo_control != 'A' %}
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2">Documentos del control</h5>
+                <p class="text-muted small mb-3">Distribución por estado.</p>
+                <div class="chart-box">
+                    <canvas id="chartDetalleDocumentos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2">Personal del control</h5>
+                <p class="text-muted small mb-3">Conocimiento, capacitación y necesidad.</p>
+                <div class="chart-box">
+                    <canvas id="chartDetallePersonal"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2">Productos químicos del control</h5>
+                <p class="text-muted small mb-3">Correctos vs con incumplimiento.</p>
+                <div class="chart-box">
+                    <canvas id="chartDetalleQuimicos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card content-card mb-4">
+    <div class="card-body">
+        <h5 class="mb-3">Personal relevado</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Conoce gestión</th>
+                        <th>Capacitación</th>
+                        <th>Requiere capacitación</th>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in personal %}
+                    <tr>
+                        <td>{{ item.nombre_apellido }}</td>
+                        <td>{{ 'Sí' if item.conoce_gestion_documental else 'No' }}</td>
+                        <td>{{ 'Sí' if item.realizo_capacitacion else 'No' }}</td>
+                        <td>{{ 'Sí' if item.requiere_capacitacion else 'No' }}</td>
+                        <td>{{ item.observaciones or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No hay personal cargado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card content-card mb-4">
+    <div class="card-body">
+        <h5 class="mb-3">Documentos revisados</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Revisión</th>
+                        <th>Copia</th>
+                        <th>No cargado en Loyal</th>
+                        <th>Estado</th>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in documentos %}
+                    <tr>
+                        <td>{{ item.codigo_documento or '-' }}</td>
+                        <td>{{ item.revision or '-' }}</td>
+                        <td>{{ 'Sí' if item.copia_controlada else 'No' }}</td>
+                        <td>{{ 'Sí' if item.no_cargado_portal else 'No' }}</td>
+                        <td>{{ item.estado }}</td>
+                        <td>
+                            {{ item.observaciones or '-' }}
+                            {% if item.imagen_path %}
+                                <div class="mt-2">
+                                    <a href="{{ url_for('static', filename='uploads/documentos/' ~ item.imagen_path) }}" target="_blank" title="Ver foto a tamaño completo">
+                                        <img src="{{ url_for('static', filename='uploads/documentos/' ~ item.imagen_path) }}" alt="Foto adjunta" class="img-thumbnail" style="max-height: 100px; cursor: zoom-in;">
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay documentos cargados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card content-card">
+    <div class="card-body">
+        <h5 class="mb-3">Productos químicos</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Bajo llave</th>
+                        <th>Envase original</th>
+                        <th>Etiqueta correcta</th>
+                        <th>Hoja seguridad</th>
+                        <th>Observación</th>
+                        <th>Medida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in quimicos %}
+                    <tr>
+                        <td>{{ item.nombre_producto }}</td>
+                        <td>{{ 'Sí' if item.bajo_llave else 'No' }}</td>
+                        <td>{{ 'Sí' if item.envase_original else 'No' }}</td>
+                        <td>{{ 'Sí' if item.etiquetado_correcto else 'No' }}</td>
+                        <td>{{ 'Sí' if item.hoja_seguridad else 'No' }}</td>
+                        <td>{{ item.observaciones or '-' }}</td>
+                        <td>{{ item.medida or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay productos químicos cargados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if control.tipo_control != 'A' %}
+<script id="data-detalle-documentos" type="application/json">{{ documentos|tojson }}</script>
+<script id="data-detalle-personal" type="application/json">{{ personal|tojson }}</script>
+<script id="data-detalle-quimicos" type="application/json">{{ quimicos|tojson }}</script>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const docEl = document.getElementById('data-detalle-documentos');
+const documentosDetalle = docEl && docEl.textContent ? JSON.parse(docEl.textContent) : [];
+
+const perEl = document.getElementById('data-detalle-personal');
+const personalDetalle = perEl && perEl.textContent ? JSON.parse(perEl.textContent) : [];
+
+const quiEl = document.getElementById('data-detalle-quimicos');
+const quimicosDetalle = quiEl && quiEl.textContent ? JSON.parse(quiEl.textContent) : [];
+
+// DOCUMENTOS
+const docsResumen = {
+    correcto: 0,
+    documento_obsoleto: 0,
+    sin_copia_controlada: 0,
+    documento_no_controlado: 0,
+    otro: 0
+};
+
+documentosDetalle.forEach(doc => {
+    const estado = doc.estado || 'otro';
+    if (docsResumen.hasOwnProperty(estado)) {
+        docsResumen[estado]++;
+    } else {
+        docsResumen.otro++;
+    }
+});
+
+const ctxDetalleDocumentos = document.getElementById('chartDetalleDocumentos');
+if (ctxDetalleDocumentos) {
+    new Chart(ctxDetalleDocumentos, {
+        type: 'doughnut',
+        data: {
+            labels: [
+                'Correcto',
+                'Documento obsoleto',
+                'Sin copia controlada',
+                'Documento no controlado',
+                'Otro'
+            ],
+            datasets: [{
+                data: [
+                    docsResumen.correcto,
+                    docsResumen.documento_obsoleto,
+                    docsResumen.sin_copia_controlada,
+                    docsResumen.documento_no_controlado,
+                    docsResumen.otro
+                ],
+                backgroundColor: ['#3b82f6', '#f59e0b', '#eab308', '#14b8a6', '#8b5cf6']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+// Helper to check for affirmative values
+const isTrue = (v) => v === 1 || v === '1' || String(v).toLowerCase() === 'sí' || String(v).toLowerCase() === 'si';
+
+// PERSONAL
+let conoceSi = 0, conoceNo = 0;
+let capSi = 0, capNo = 0;
+let requiereSi = 0, requiereNo = 0;
+
+personalDetalle.forEach(p => {
+    if (isTrue(p.conoce_gestion_documental)) conoceSi++; else conoceNo++;
+    if (isTrue(p.realizo_capacitacion)) capSi++; else capNo++;
+    if (isTrue(p.requiere_capacitacion)) requiereSi++; else requiereNo++;
+});
+
+const ctxDetallePersonal = document.getElementById('chartDetallePersonal');
+if (ctxDetallePersonal) {
+    new Chart(ctxDetallePersonal, {
+        type: 'bar',
+        data: {
+            labels: ['Conoce gestión', 'Capacitados', 'Requieren capacitación'],
+            datasets: [
+                {
+                    label: 'Sí',
+                    data: [conoceSi, capSi, requiereSi],
+                    backgroundColor: '#B72218'
+                },
+                {
+                    label: 'No',
+                    data: [conoceNo, capNo, requiereNo],
+                    backgroundColor: '#323232'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', display: true } },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 }, suggestedMax: 5 }
+            }
+        }
+    });
+}
+
+// QUIMICOS
+let quimicosCorrectos = 0;
+let quimicosIncorrectos = 0;
+
+quimicosDetalle.forEach(q => {
+    const correcto = isTrue(q.bajo_llave) && isTrue(q.envase_original) && 
+                     isTrue(q.etiquetado_correcto) && isTrue(q.hoja_seguridad);
+    if (correcto) quimicosCorrectos++; else quimicosIncorrectos++;
+});
+
+const ctxDetalleQuimicos = document.getElementById('chartDetalleQuimicos');
+if (ctxDetalleQuimicos) {
+    new Chart(ctxDetalleQuimicos, {
+        type: 'pie',
+        data: {
+            labels: ['Correctos', 'Con incumplimiento'],
+            datasets: [{
+                data: [quimicosCorrectos, quimicosIncorrectos],
+                backgroundColor: ['#323232', '#B72218']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+document.querySelectorAll('.hallazgo-clickable[data-href]').forEach((row) => {
+    row.style.cursor = 'pointer';
+    row.classList.add('table-active');
+    row.addEventListener('click', (event) => {
+        if (event.target.closest('a, button, input, select, textarea, label')) {
+            return;
+        }
+        window.location.href = row.dataset.href;
+    });
+});
+
+document.querySelectorAll('a[href*="/acciones_correctivas/"], a[href*="/auditoria/hallazgo/"]').forEach((link) => {
+    link.style.position = 'relative';
+    link.style.zIndex = '3';
+    link.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.assign(link.href);
+    });
+
+    const row = link.closest('tr');
+    if (row && !row.dataset.href) {
+        row.dataset.href = link.href;
+        row.classList.add('hallazgo-clickable', 'table-active');
+        row.style.cursor = 'pointer';
+    }
+});
+</script>
+{% endblock %}

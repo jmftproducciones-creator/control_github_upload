@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Usuarios{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Gestión de Usuarios</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#nuevoUsuarioModal">
+        + Nuevo Usuario
+    </button>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Usuario / Nombre</th>
+                        <th>Email</th>
+                        <th>Sede / Sector</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold">{{ u.usuario or '<span class="text-danger">Sin Usuario</span>'|safe }}</div>
+                            <div class="text-muted small">{{ u.nombre }} {{ u.apellido }}</div>
+                        </td>
+                        <td>{{ u.email }}</td>
+                        <td>
+                            {% if u.planta_nombre %}
+                                <div class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                    <i class="bi bi-building me-1"></i>{{ u.planta_nombre }}
+                                </div>
+                            {% endif %}
+                            {% if u.sector_nombre %}
+                                <div class="small text-muted mt-1"><i class="bi bi-geo-alt me-1"></i>{{ u.sector_nombre }}</div>
+                            {% elif not u.planta_nombre %}
+                                <span class="text-muted small fst-italic">No asignado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.id != g.user.id %}
+                            <form action="{{ url_for('cambiar_rol_usuario', user_id=u.id) }}" method="POST" class="m-0 p-0">
+                                <select name="rol" class="form-select form-select-sm shadow-none fw-bold text-center
+                                {% if u.rol == 'superadmin' %}text-danger bg-danger-subtle border-danger-subtle
+                                {% elif u.rol == 'admin' %}text-primary bg-primary-subtle border-primary-subtle
+                                {% else %}text-secondary bg-secondary-subtle border-secondary-subtle{% endif %}" 
+                                onchange="this.form.submit()" style="width: auto; cursor: pointer; border-radius: 20px;">
+                                    <option value="visor" {% if u.rol == 'visor' %}selected{% endif %} class="text-dark bg-white">Visor</option>
+                                    <option value="admin" {% if u.rol == 'admin' %}selected{% endif %} class="text-dark bg-white">Admin</option>
+                                    <option value="superadmin" {% if u.rol == 'superadmin' %}selected{% endif %} class="text-dark bg-white">Superadmin</option>
+                                    <option value="plant_manager" {% if u.rol == 'plant_manager' %}selected{% endif %} class="text-dark bg-white">Resp. Planta</option>
+                                    <option value="auditor_jefe" {% if u.rol == 'auditor_jefe' %}selected{% endif %} class="text-dark bg-white">Auditor Jefe</option>
+                                </select>
+                            </form>
+                            {% else %}
+                                {% if u.rol == 'superadmin' %}
+                                    <span class="badge bg-danger">Superadmin</span>
+                                {% elif u.rol == 'admin' %}
+                                    <span class="badge bg-primary">Admin</span>
+                                {% elif u.rol == 'plant_manager' %}
+                                    <span class="badge bg-info text-dark">Resp. Planta</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Visor</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.activo %}
+                                <span class="badge bg-success">Activo</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if u.id != g.user.id %}
+                            <form action="{{ url_for('toggle_usuario', user_id=u.id) }}" method="POST" class="d-inline">
+                                {% if u.activo %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Estás seguro de desactivar a este usuario? Ya no podrá ingresar.');">Desactivar</button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-success">Activar</button>
+                                {% endif %}
+                            </form>
+                            <button class="btn btn-sm btn-outline-primary btn-editar" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editarUsuarioModal"
+                                    data-id="{{ u.id }}"
+                                    data-nombre="{{ u.nombre }}"
+                                    data-apellido="{{ u.apellido }}"
+                                    data-usuario="{{ u.usuario or '' }}"
+                                    data-email="{{ u.email }}"
+                                    data-rol="{{ u.rol }}"
+                                    data-planta="{{ u.planta_id or '' }}"
+                                    data-sector="{{ u.sector_id or '' }}">
+                                Editar
+                            </button>
+                            {% else %}
+                            <span class="text-muted small">Tú</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuevo Usuario -->
+<div class="modal fade" id="nuevoUsuarioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom-0">
+        <h5 class="modal-title fw-bold">Crear Nuevo Usuario</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('nuevo_usuario') }}" method="POST">
+          <div class="modal-body">
+              <div class="row g-3">
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Nombre</label>
+                      <input type="text" name="nombre" class="form-control" required>
+                  </div>
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Apellido</label>
+                      <input type="text" name="apellido" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Usuario (Login)</label>
+                      <input type="text" name="usuario" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Email</label>
+                      <input type="email" name="email" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Contraseña</label>
+                      <input type="text" name="password" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Rol de Accesibilidad</label>
+                      <select name="rol" class="form-select" required>
+                          <option value="visor">Visor (Lectura del Historial)</option>
+                          <option value="plant_manager">Responsable de Planta (Solo sus sectores)</option>
+                          <option value="auditor_jefe">Auditor Jefe (Gestión Integral)</option>
+                          <option value="admin">Admin (Visor + Nuevo Control)</option>
+                          <option value="superadmin">Superadmin (Completo)</option>
+                      </select>
+                  </div>
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Sede Principal</label>
+                      <select name="planta_id" id="nuevo_planta_id" class="form-select" onchange="filterSectores('nuevo')">
+                          <option value="">-- No asignada --</option>
+                          {% for p in plantas %}
+                          <option value="{{ p.id }}">{{ p.nombre }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Sector Asignado</label>
+                      <select name="sector_id" id="nuevo_sector_id" class="form-select">
+                          <option value="">-- Seleccione sede primero --</option>
+                          {% for s in sectores %}
+                          <option value="{{ s.id }}" data-planta="{{ s.planta_id }}">{{ s.nombre }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+              </div>
+          </div>
+          <div class="modal-footer border-top-0">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary px-4">Guardar Usuario</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Usuario -->
+<div class="modal fade" id="editarUsuarioModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom-0">
+        <h5 class="modal-title fw-bold">Editar Usuario</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="formEditarUsuario" method="POST">
+          <div class="modal-body">
+              <div class="row g-3">
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Nombre</label>
+                      <input type="text" name="nombre" id="edit_nombre" class="form-control" required>
+                  </div>
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Apellido</label>
+                      <input type="text" name="apellido" id="edit_apellido" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Usuario (Login)</label>
+                      <input type="text" name="usuario" id="edit_usuario" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Email</label>
+                      <input type="email" name="email" id="edit_email" class="form-control" required>
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Nueva Contraseña (opcional)</label>
+                      <input type="password" name="password" id="edit_password" class="form-control" placeholder="Dejar en blanco para no cambiar">
+                  </div>
+                  <div class="col-12">
+                      <label class="form-label text-muted fw-semibold">Rol de Accesibilidad</label>
+                      <select name="rol" id="edit_rol" class="form-select" required>
+                          <option value="visor">Visor (Lectura del Historial)</option>
+                          <option value="plant_manager">Responsable de Planta (Solo sus sectores)</option>
+                          <option value="auditor_jefe">Auditor Jefe (Gestión Integral)</option>
+                          <option value="admin">Admin (Visor + Nuevo Control)</option>
+                          <option value="superadmin">Superadmin (Completo)</option>
+                      </select>
+                  </div>
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Sede Principal</label>
+                      <select name="planta_id" id="edit_planta_id" class="form-select" onchange="filterSectores('edit')">
+                          <option value="">-- No asignada --</option>
+                          {% for p in plantas %}
+                          <option value="{{ p.id }}">{{ p.nombre }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+                  <div class="col-md-6">
+                      <label class="form-label text-muted fw-semibold">Sector Asignado</label>
+                      <select name="sector_id" id="edit_sector_id" class="form-select">
+                          <option value="">-- Seleccione sede primero --</option>
+                          {% for s in sectores %}
+                          <option value="{{ s.id }}" data-planta="{{ s.planta_id }}">{{ s.nombre }}</option>
+                          {% endfor %}
+                      </select>
+                  </div>
+              </div>
+          </div>
+          <div class="modal-footer border-top-0">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary px-4">Guardar Cambios</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterSectores(prefix) {
+    const plantaId = document.getElementById(prefix + '_planta_id').value;
+    const sectorSelect = document.getElementById(prefix + '_sector_id');
+    const options = sectorSelect.querySelectorAll('option');
+    
+    let firstFound = false;
+    options.forEach(opt => {
+        if (opt.value === "") {
+            opt.style.display = "block";
+            return;
+        }
+        
+        if (plantaId === "" || opt.getAttribute('data-planta') === plantaId) {
+            opt.style.display = "block";
+            if (!firstFound && plantaId !== "") {
+                // opt.selected = true; // Optional: auto-select first sector
+                // firstFound = true;
+            }
+        } else {
+            opt.style.display = "none";
+            if (opt.selected) sectorSelect.value = "";
+        }
+    });
+}
+
+function inferPlantaFromSector(prefix) {
+    const plantaSelect = document.getElementById(prefix + '_planta_id');
+    const sectorSelect = document.getElementById(prefix + '_sector_id');
+    const selectedOption = sectorSelect.options[sectorSelect.selectedIndex];
+    if (!plantaSelect || !selectedOption || !selectedOption.value) return;
+
+    const plantaFromSector = selectedOption.getAttribute('data-planta');
+    if (plantaFromSector) {
+        plantaSelect.value = plantaFromSector;
+        filterSectores(prefix);
+        sectorSelect.value = selectedOption.value;
+    }
+}
+
+// Preparar edición mediante atributos data
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('btn-editar')) {
+        const btn = e.target;
+        const id = btn.getAttribute('data-id');
+        const nombre = btn.getAttribute('data-nombre');
+        const apellido = btn.getAttribute('data-apellido');
+        const usuario = btn.getAttribute('data-usuario');
+        const email = btn.getAttribute('data-email');
+        const rol = btn.getAttribute('data-rol');
+        const planta_id = btn.getAttribute('data-planta');
+        const sector_id = btn.getAttribute('data-sector');
+
+        document.getElementById('formEditarUsuario').action = '/usuarios/editar/' + id;
+        document.getElementById('edit_nombre').value = nombre;
+        document.getElementById('edit_apellido').value = apellido;
+        document.getElementById('edit_usuario').value = usuario;
+        document.getElementById('edit_email').value = email;
+        document.getElementById('edit_rol').value = rol;
+        document.getElementById('edit_password').value = '';
+        
+        document.getElementById('edit_planta_id').value = planta_id || '';
+        filterSectores('edit');
+        document.getElementById('edit_sector_id').value = sector_id || '';
+        if (!planta_id && sector_id) {
+            inferPlantaFromSector('edit');
+        }
+    }
+});
+
+// Initial filter for "nuevo" modal
+document.addEventListener('DOMContentLoaded', () => {
+    filterSectores('nuevo');
+    document.getElementById('nuevo_sector_id').addEventListener('change', () => inferPlantaFromSector('nuevo'));
+    document.getElementById('edit_sector_id').addEventListener('change', () => inferPlantaFromSector('edit'));
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1051 @@
+{% extends 'base.html' %}
+{% block title %}Historial{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{% if es_mi_cronograma %}Mi Cronograma{% else %}Historial de controles{% endif %}</h2>
+        <p class="text-muted mb-0">{% if es_mi_cronograma %}Consulta de tus controles asignados{% else %}Consulta de controles ya cargados{% endif %}</p>
+    </div>
+</div>
+
+
+
+<!-- Calendar Event Tooltip -->
+<div id="cal-tooltip" class="cal-tooltip"></div>
+
+<div class="card content-card mb-4 shadow-sm border-0">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="card-title fw-bold mb-0 text-secondary">
+                {% if es_mi_cronograma %}Mi Cronograma de Control Documental{% else %}Cronograma de Control Documental en Planta{% endif %}
+            </h5>
+            <div class="d-flex gap-3 align-items-center">
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="ver_por" id="ver_por_estado" checked onchange="cambiarModoColor('estado')">
+                    <label class="btn btn-outline-secondary" for="ver_por_estado">Ver por Estado</label>
+                    <input type="radio" class="btn-check" name="ver_por" id="ver_por_tipo" onchange="cambiarModoColor('tipo')">
+                    <label class="btn btn-outline-secondary" for="ver_por_tipo">Ver por Tipo</label>
+                </div>
+                {% if g.user.rol in ['superadmin', 'admin'] %}
+                <button class="btn btn-primary btn-sm fw-bold" onclick="abrirModalBulkAuditoria()">
+                    <i class="bi bi-calendar-plus me-1"></i> Creación Conjunta
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        <div id="calendar"></div>
+        
+        <div class="calendar-legend mt-3">
+            <div class="legend-group">
+                <div class="legend-title">Por estado</div>
+                <div class="legend-items">
+                    <span class="legend-chip"><span class="legend-dot event-programmed"></span> Programada</span>
+                    <span class="legend-chip"><span class="legend-dot event-audit-confirm"></span> A confirmar</span>
+                    <span class="legend-chip"><span class="legend-dot event-audit-confirmed"></span> Confirmada</span>
+                    <span class="legend-chip"><span class="legend-dot event-audit-rescheduled"></span> Reprogramada</span>
+                    <span class="legend-chip"><span class="legend-dot event-realized"></span> Realizada</span>
+                    <span class="legend-chip"><span class="legend-dot event-capa-auditor"></span> CAPA en revision auditor</span>
+                    <span class="legend-chip"><span class="legend-dot event-capa-sector"></span> CAPA en revision sector</span>
+                    <span class="legend-chip"><span class="legend-dot event-capa-prorroga"></span> CAPA bloqueada por prorroga</span>
+                    <span class="legend-chip"><span class="legend-dot event-capa-vencido"></span> CAPA vencida</span>
+                    <span class="legend-chip"><span class="legend-dot event-capa-cerrado"></span> CAPA cerrada</span>
+                </div>
+            </div>
+
+            <div class="legend-group">
+                <div class="legend-title">Por tipo</div>
+                <div class="legend-items">
+                    <span class="legend-chip"><span class="legend-dot event-auditoria"></span> Auditoria</span>
+                    <span class="legend-chip"><span class="legend-dot event-documental"></span> Control documental</span>
+                    <span class="legend-chip"><span class="legend-dot event-capa"></span> Accion correctiva</span>
+                </div>
+            </div>
+
+            {% if g.user.rol in ['superadmin', 'admin'] %}
+            <div class="legend-help">Haz clic en un dia vacio para programar un nuevo control.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Programar -->
+<div class="modal fade" id="modalProgramar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header border-bottom-0">
+        <h5 class="modal-title fw-bold" id="modalTituloLabel">Programar Control</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="prog_event_id">
+        
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Título de la actividad (Opcional):</label>
+            <input type="text" id="prog_titulo" class="form-control" placeholder="Ej: Auditoría Mensual">
+        </div>
+
+        <!-- Repetir Toggle -->
+        <div class="form-check form-switch mb-3 modal-section-box p-3 rounded border">
+            <input class="form-check-input ms-0 me-2" type="checkbox" id="prog_es_recurrente" onchange="toggleModoRecurrente(this.checked)">
+            <label class="form-check-label fw-bold" for="prog_es_recurrente">¿Es una programación recurrente?</label>
+        </div>
+
+        <div id="div_campos_asignados">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Sector:</label>
+                <select id="prog_sector" class="form-select">
+                    <option value="">Selecciona un sector...</option>
+                    {% for sector in sectores %}
+                    <option value="{{ sector.id }}">{{ sector.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Controlado (Persona a entrevistar):</label>
+                <select id="prog_controlado" class="form-select">
+                    <option value="">Selecciona un usuario...</option>
+                    {% for u in usuarios_activos %}
+                    <option value="{{ u.id }}" data-sector="{{ u.sector_id or '' }}">{{ u.nombre }} {{ u.apellido }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div id="div_opciones_recurrencia" style="display:none;" class="bg-light p-3 rounded border mb-3">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Frecuencia:</label>
+                    <select id="prog_recurrencia" class="form-select">
+                        <option value="">Seleccionar...</option>
+                        <option value="semanal">Semanal</option>
+                        <option value="mensual">Mensual</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Hasta fecha:</label>
+                    <input type="date" id="prog_recurrencia_fin" class="form-control">
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Fecha Inicio:</label>
+                <input type="date" id="prog_fecha_inicio" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Fecha Fin:</label>
+                <input type="date" id="prog_fecha_fin" class="form-control" required>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Hora Inicio (Opcional):</label>
+                <input type="time" id="prog_hora_inicio" class="form-control">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Hora Fin (Opcional):</label>
+                <input type="time" id="prog_hora_fin" class="form-control">
+            </div>
+        </div>
+
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Controlador (Carga la info):</label>
+            <select id="prog_controlador" class="form-select">
+                <option value="">Selecciona un usuario...</option>
+                {% for u in usuarios_activos %}
+                <option value="{{ u.id }}" data-sector="{{ u.sector_id or '' }}" {% if g.user.id == u.id %}selected{% endif %}>{{ u.nombre }} {{ u.apellido }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Tipo de Actividad:</label>
+            <select id="prog_tipo_control" class="form-select" onchange="togglePlanAuditoria(this.value)">
+                <option value="P">Control Documental (Estándar)</option>
+                <option value="A">Auditoría (Azul)</option>
+            </select>
+        </div>
+
+        <!-- Auditoría Fields -->
+        <div id="div_plan_auditoria" style="display: none;" class="bg-light p-3 rounded border mb-3">
+            <label class="form-label fw-bold small text-primary mb-2 d-block">DETALLES DE AUDITORÍA</label>
+            
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Plan de la Auditoría Especifica:</label>
+                <textarea id="prog_plan_auditoria" class="form-control" rows="3" placeholder="Describe los puntos clave a auditar..."></textarea>
+            </div>
+            
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Auditor Jefe:</label>
+                    <input type="text" id="prog_auditor_jefe_nombre" class="form-control form-control-sm" list="list_usuarios_prog" placeholder="Nombre...">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Acompañante:</label>
+                    <input type="text" id="prog_auditor_acompanante_nombre" class="form-control form-control-sm" list="list_usuarios_prog" placeholder="Nombre...">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">Aparcero/Formación:</label>
+                    <input type="text" id="prog_auditor_formacion_nombre" class="form-control form-control-sm" list="list_usuarios_prog" placeholder="Nombre...">
+                    <div class="form-text x-small">Info extra</div>
+                </div>
+            </div>
+            <datalist id="list_usuarios_prog">
+                {% for u in usuarios_activos %}
+                <option value="{{ u.nombre }} {{ u.apellido }}"></option>
+                {% endfor %}
+            </datalist>
+        </div>
+      </div>
+      <div class="modal-footer border-top-0 justify-content-between">
+        <div id="group_eliminar_recurrencia" style="display:none;" class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="borrarAsignacion(true)">Eliminar Serie</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="borrarAsignacion(false)">Eliminar Fecha</button>
+        </div>
+        <button type="button" class="btn btn-outline-danger btn-sm" id="btnEliminarSimple" onclick="borrarAsignacion(false)" style="display:none;">Eliminar</button>
+        
+        <div>
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-warning fw-bold" onclick="guardarProgramacion()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Realizado -->
+<div class="modal fade" id="modalRealizar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header border-bottom-0">
+        <h5 class="modal-title fw-bold">Gestión de Control</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="event-info" class="mb-4 p-3 event-info-box rounded">
+            <!-- Dynamic info -->
+        </div>
+        
+        <input type="hidden" id="real_event_id">
+        <input type="hidden" id="real_instance_date">
+
+        <div class="mb-3">
+            <button type="button" class="btn btn-info w-100 fw-bold mb-2" onclick="irAReporte()">
+                <i class="bi bi-file-earmark-plus me-1"></i> Cargar Reporte de este Control
+            </button>
+            {% if g.user.rol in ['superadmin', 'admin'] %}
+            <button type="button" class="btn btn-outline-warning w-100 fw-semibold" onclick="abrirEdicionDesdeMRealizar()">
+                <i class="bi bi-pencil me-1"></i> Editar este evento del cronograma
+            </button>
+            {% endif %}
+        </div>
+
+        <hr>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold small">Marcar como realizado manualmente:</label>
+            <select id="real_control" class="form-select mb-2">
+                <option value="">Sólo marcar realizado (sin reporte)</option>
+                <!-- Filled via JS -->
+            </select>
+            <button type="button" class="btn btn-success w-100 fw-bold" onclick="guardarRealizado()">
+                Marcar como Realizado
+            </button>
+        </div>
+      </div>
+      <div class="modal-footer border-top-0 justify-content-between">
+        <div id="group_eliminar_recurrencia_real" style="display:none;" class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="borrarAsignacion(true)">Eliminar Serie</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="borrarAsignacion(false)">Eliminar Fecha</button>
+        </div>
+        <button type="button" class="btn btn-outline-danger btn-sm" id="btnEliminarSimple_real" onclick="borrarAsignacion(false)" style="display:none;">Eliminar Asignación</button>
+        
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Bulk Auditoría -->
+<div class="modal fade" id="modalBulkAuditoria" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Creación Conjunta de Auditorías</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+          <p class="text-muted small">Selecciona los sectores a auditar y asigna una fecha específica para cada uno. También puedes usar el campo de abajo para poner la misma fecha a todos los sectores marcados.</p>
+          
+          <div class="bg-light p-3 rounded border mb-3">
+              <div class="row align-items-center">
+                  <div class="col-auto">
+                      <label class="form-label mb-0 fw-bold small">Asignar fecha a marcados:</label>
+                  </div>
+                  <div class="col">
+                      <input type="date" id="bulk_fecha_batch" class="form-control form-control-sm">
+                  </div>
+                  <div class="col-auto">
+                      <button class="btn btn-secondary btn-sm" onclick="applyBatchDate()">Aplicar fecha</button>
+                  </div>
+              </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                  <label class="form-label fw-semibold">Tipo de Actividad:</label>
+                  <select id="bulk_tipo_control" class="form-select" onchange="toggleBulkPlanAuditoria(this.value)">
+                      <option value="A">Auditoría</option>
+                      <option value="P">Control Documental</option>
+                  </select>
+              </div>
+              <div class="col-md-6">
+                  <label class="form-label fw-semibold">Título:</label>
+                  <input type="text" id="bulk_titulo" class="form-control" value="Auditoría Programada" oninput="this.dataset.userEdited='true'">
+              </div>
+              <div class="col-md-6">
+                  <label class="form-label fw-semibold">Responsable (Controlador):</label>
+                  <select id="bulk_controlador" class="form-select">
+                    {% for u in usuarios_activos %}
+                    <option value="{{ u.id }}" {% if g.user.id == u.id %}selected{% endif %}>{{ u.nombre }} {{ u.apellido }}</option>
+                    {% endfor %}
+                  </select>
+              </div>
+              <div class="col-md-6">
+                  <label class="form-label fw-semibold">Controlado (Opcional):</label>
+                  <select id="bulk_controlado" class="form-select">
+                    <option value="">Sin asignar...</option>
+                    {% for u in usuarios_activos %}
+                    <option value="{{ u.id }}" data-sector="{{ u.sector_id or '' }}">{{ u.nombre }} {{ u.apellido }}</option>
+                    {% endfor %}
+                  </select>
+              </div>
+          </div>
+
+          <div id="bulk_div_plan_auditoria" class="bg-light p-3 rounded border mb-3">
+              <label class="form-label fw-bold small text-primary mb-2 d-block">DETALLES DE AUDITORÍA</label>
+              <div class="mb-3">
+                  <label class="form-label small fw-bold">Plan de la Auditoría Específica:</label>
+                  <textarea id="bulk_plan_auditoria" class="form-control" rows="3" placeholder="Describe los puntos clave a auditar..."></textarea>
+              </div>
+              <div class="row g-2">
+                  <div class="col-md-4">
+                      <label class="form-label small fw-bold">Auditor Jefe:</label>
+                      <input type="text" id="bulk_auditor_jefe_nombre" class="form-control form-control-sm" list="list_usuarios_prog" placeholder="Nombre...">
+                  </div>
+                  <div class="col-md-4">
+                      <label class="form-label small fw-bold">Acompañante:</label>
+                      <input type="text" id="bulk_auditor_acompanante_nombre" class="form-control form-control-sm" list="list_usuarios_prog" placeholder="Nombre...">
+                  </div>
+                  <div class="col-md-4">
+                      <label class="form-label small fw-bold text-muted">Aparcero/Formación:</label>
+                      <input type="text" id="bulk_auditor_formacion_nombre" class="form-control form-control-sm" list="list_usuarios_prog" placeholder="Nombre...">
+                  </div>
+              </div>
+          </div>
+
+          <div class="mb-2 d-flex justify-content-between align-items-center">
+              <span class="fw-semibold">Sectores a auditar:</span>
+              <div>
+                  <button class="btn btn-link btn-sm text-decoration-none p-0" onclick="selectAllBulkSectors(true)">Seleccionar todos</button>
+                  <span class="mx-1 text-muted">|</span>
+                  <button class="btn btn-link btn-sm text-decoration-none text-muted p-0" onclick="selectAllBulkSectors(false)">Desmarcar todos</button>
+              </div>
+          </div>
+          <div class="table-responsive rounded border" style="max-height: 350px; overflow-y: auto;">
+              <table class="table table-hover table-sm mb-0">
+                  <thead class="table-light sticky-top">
+                      <tr>
+                          <th style="width: 40px;"></th>
+                          <th>Sector</th>
+                          <th>Fecha programada</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {% for s in sectores %}
+                      <tr>
+                          <td class="text-center">
+                              <input class="form-check-input bulk-sector-check" type="checkbox" value="{{ s.id }}" id="bulk_s_{{ s.id }}" onchange="toggleBulkDateInput(this.value, this.checked)">
+                          </td>
+                          <td>
+                              <label class="form-check-label d-block" for="bulk_s_{{ s.id }}">{{ s.nombre }}</label>
+                          </td>
+                          <td>
+                              <input type="date" class="form-control form-control-sm bulk-sector-date" id="bulk_date_{{ s.id }}" disabled>
+                          </td>
+                      </tr>
+                      {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+      <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary fw-bold" onclick="guardarBulkAuditoria()">Programar Auditorías</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if not es_mi_cronograma %}
+<div class="card content-card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Planta</label>
+                <select name="planta_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for planta in plantas %}
+                    <option value="{{ planta.id }}" {% if request.args.get('planta_id') == planta.id|string %}selected{% endif %}>
+                        {{ planta.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Sector</label>
+                <select name="sector_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for sector in sectores %}
+                    <option value="{{ sector.id }}" {% if request.args.get('sector_id') == sector.id|string %}selected{% endif %}>
+                        {{ sector.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Responsable</label>
+                <select name="responsable_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for u in usuarios_activos %}
+                    <option value="{{ u.id }}" {% if request.args.get('responsable_id') == u.id|string %}selected{% endif %}>
+                        {{ u.nombre }} {{ u.apellido }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Fecha</label>
+                <input type="date" name="fecha" class="form-control" value="{{ request.args.get('fecha', '') }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Tipo</label>
+                <select name="tipo_control" class="form-select" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="P" {% if request.args.get('tipo_control') == 'P' %}selected{% endif %}>Control Doc.</option>
+                    <option value="A" {% if request.args.get('tipo_control') == 'A' %}selected{% endif %}>Auditoría</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card content-card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Planta</th>
+                        <th>Sector</th>
+                        <th>Responsable</th>
+                        <th>Personas</th>
+                        <th>Req. capacitación</th>
+                        <th>Docs</th>
+                        <th>Incorrectos</th>
+                        <th><i class="bi bi-camera"></i></th>
+                        <th></th>
+                        {% if g.user.rol in ['superadmin', 'admin'] %}<th></th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in controles %}
+                    <tr>
+                        <td>{{ c.id }}</td>
+                        <td>{{ c.fecha_control }}</td>
+                        <td>
+                            {% if c.tipo_control == 'A' %}
+                            <span class="badge bg-primary">Audi</span>
+                            {% else %}
+                            <span class="badge bg-danger">Doc</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ c.planta }}</td>
+                        <td>{{ c.sector }}</td>
+                        <td>{{ c.responsable.strip() or '-' }}</td>
+                        <td>{{ c.total_personas_entrevistadas }}</td>
+                        <td>{{ c.total_requieren_capacitacion }}</td>
+                        <td>{{ c.total_documentos_controlados }}</td>
+                        <td>{{ c.total_documentos_incorrectos }}</td>
+                        <td>
+                            {% if c.tiene_fotos %}
+                            <span class="badge bg-info" title="Contiene fotos"><i class="bi bi-camera"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('detalle_control', control_id=c.id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
+                        </td>
+                        {% if g.user.rol in ['superadmin', 'admin'] %}
+                        <td>
+                            <a href="{{ url_for('editar_control', control_id=c.id) }}" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-pencil"></i> Editar
+                            </a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">No hay controles para mostrar.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<!-- FullCalendar 6 -->
+<script src="{{ url_for('static', filename='js/fullcalendar.index.global.min.js') }}"></script>
+
+<script id="controles-data" type="application/json">
+    {{ (controles|tojson if controles else '[]')|safe }}
+</script>
+
+<script>
+function positionTooltip(e) {
+    const tooltip = document.getElementById('cal-tooltip');
+    const ox = 14, oy = 14;
+    let x = e.clientX + ox;
+    let y = e.clientY + oy;
+    const tw = tooltip.offsetWidth || 240;
+    const th = tooltip.offsetHeight || 120;
+    if (x + tw > window.innerWidth - 10) x = e.clientX - tw - ox;
+    if (y + th > window.innerHeight - 10) y = e.clientY - th - oy;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+}
+
+let calendar = null;
+let modalProg = null;
+let modalReal = null;
+let selectedEvent = null;
+
+// User permissions and role from Jinja to JS
+const userRole = "{{ g.user.rol }}";
+const canProgram = "{{ 'true' if g.user.rol in ['superadmin', 'admin'] else 'false' }}" === 'true';
+const isVisor = userRole === 'visor';
+const isAdmin = ['superadmin', 'admin'].includes(userRole);
+const controlesEl = document.getElementById('controles-data');
+const allControles = controlesEl ? JSON.parse(controlesEl.textContent) : [];
+let colorMode = 'estado'; // 'estado' or 'tipo'
+
+document.addEventListener('DOMContentLoaded', function() {
+    modalProg = new bootstrap.Modal(document.getElementById('modalProgramar'));
+    modalReal = new bootstrap.Modal(document.getElementById('modalRealizar'));
+    
+    const calendarEl = document.getElementById('calendar');
+    calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listWeek'
+        },
+        locale: 'es',
+        buttonText: {
+            today: 'Hoy',
+            month: 'Mes',
+            week: 'Semana',
+            list: 'Lista'
+        },
+        events: "{{ url_for('get_eventos', mi_cronograma='true' if es_mi_cronograma else 'false') }}",
+        eventClassNames: function(info) {
+            const props = info.event.extendedProps;
+            if (colorMode === 'estado') {
+                return [props.status_class || (props.tipo_control === 'R' ? 'event-realized' : 'event-programmed')];
+            }
+            if (props.item_kind === 'capa') {
+                return ['event-capa'];
+            }
+            return [props.is_audit ? 'event-auditoria' : 'event-documental'];
+        },
+        dateClick: function(info) {
+            if (canProgram) {
+                abrirModalProgramar(null, info.dateStr);
+            }
+        },
+        eventClick: function(info) {
+            selectedEvent = info.event;
+            const props = info.event.extendedProps;
+
+            if (props.item_kind === 'capa' && props.ac_id) {
+                window.location.href = `/acciones_correctivas/${props.ac_id}`;
+                return;
+            }
+
+            if (props.tipo_control === 'R' && props.control_id) {
+                window.location.href = `/control/${props.control_id}`;
+                return;
+            }
+
+            if (['P', 'A'].includes(props.tipo_control) && !isVisor) {
+                abrirModalRealizar(selectedEvent);
+            } else {
+                abrirModalProgramar(selectedEvent);
+            }
+        },
+        eventDidMount: function(info) {
+            const props = info.event.extendedProps;
+            const tooltip = document.getElementById('cal-tooltip');
+
+            info.el.addEventListener('mouseenter', function(e) {
+                const isCapa = props.item_kind === 'capa';
+                const isReal = props.tipo_control === 'R';
+                const isAudi = props.is_audit || props.tipo_control === 'A';
+                const estadoLabel = props.calendar_status || (isReal ? 'Realizado' : 'Programado');
+                const typeLabel = isCapa ? 'Accion Correctiva' : (isAudi ? 'Auditoria' : 'Control Documental');
+                const badgeClass = isCapa ? 'capa' : (isAudi ? 'audi' : (isReal ? 'real' : 'prog'));
+                const sector = props.sector_nombre || '-';
+                const controlador = props.controlador_nombre || '-';
+                const controlado = props.controlado_nombre || '-';
+                const fechaInicio = info.event.startStr ? info.event.startStr.split('T')[0] : '-';
+
+                tooltip.innerHTML = `
+                    <div class="tt-title">${info.event.title || 'Control'}</div>
+                    <div class="mb-1">
+                        <span class="tt-badge ${badgeClass}">${estadoLabel}</span>
+                        <span class="tt-badge doc ms-1" style="background:#6c757d;">${typeLabel}</span>
+                    </div>
+                    <div class="tt-row">Fecha: <strong>${fechaInicio}</strong></div>
+                    <div class="tt-row">Sector: <strong>${sector}</strong></div>
+                    <div class="tt-row">${isCapa ? 'Auditor jefe' : 'Controlador'}: <strong>${controlador}</strong></div>
+                    <div class="tt-row">${isCapa ? 'Responsable' : 'Controlado'}: <strong>${controlado}</strong></div>
+                    ${isCapa && props.tipo_hallazgo ? `<div class="tt-row">Hallazgo: <strong>${props.tipo_hallazgo}</strong></div>` : ''}
+                `;
+                tooltip.classList.add('visible');
+                positionTooltip(e);
+            });
+
+            info.el.addEventListener('mousemove', positionTooltip);
+            info.el.addEventListener('mouseleave', function() {
+                tooltip.classList.remove('visible');
+            });
+        }
+    });
+    calendar.render();
+});
+
+function toggleModoRecurrente(checked) {
+    const divAsignados = document.getElementById('div_campos_asignados');
+    const divRecurrencia = document.getElementById('div_opciones_recurrencia');
+    if (checked) {
+        divAsignados.style.display = 'none';
+        divRecurrencia.style.display = 'block';
+    } else {
+        divAsignados.style.display = 'block';
+        divRecurrencia.style.display = 'none';
+        document.getElementById('prog_recurrencia').value = "";
+    }
+}
+
+function autocompletarControladoProgramado() {
+    const sectorSelect = document.getElementById('prog_sector');
+    const controladoSelect = document.getElementById('prog_controlado');
+    if (!sectorSelect || !controladoSelect) return;
+
+    const sectorId = sectorSelect.value;
+    if (!sectorId || controladoSelect.dataset.userSelected === 'true') return;
+
+    const match = Array.from(controladoSelect.options).find((opt) => opt.dataset.sector === sectorId);
+    if (match) {
+        controladoSelect.value = match.value;
+    }
+}
+
+function bindProgramadoAutocomplete() {
+    const sectorSelect = document.getElementById('prog_sector');
+    const controladoSelect = document.getElementById('prog_controlado');
+    if (!sectorSelect || !controladoSelect || controladoSelect.dataset.boundAutocomplete === 'true') return;
+
+    if (controladoSelect.value) {
+        controladoSelect.dataset.userSelected = 'true';
+    }
+
+    controladoSelect.addEventListener('change', () => {
+        controladoSelect.dataset.userSelected = controladoSelect.value ? 'true' : '';
+    });
+
+    sectorSelect.addEventListener('change', () => {
+        if (!controladoSelect.dataset.userSelected) {
+            controladoSelect.value = '';
+        }
+        autocompletarControladoProgramado();
+    });
+
+    controladoSelect.dataset.boundAutocomplete = 'true';
+}
+
+function abrirModalProgramar(event = null, dateStr = null) {
+    // Reset fields
+    document.getElementById('prog_event_id').value = event ? event.id : "";
+    document.getElementById('prog_titulo').value = event ? event.title : "";
+    document.getElementById('prog_sector').value = event ? event.extendedProps.sector_id : "";
+    
+    const start = event ? event.startStr.split('T')[0] : dateStr;
+    const end = event ? (event.endStr ? event.endStr.split('T')[0] : start) : start;
+    
+    document.getElementById('prog_fecha_inicio').value = start;
+    document.getElementById('prog_fecha_fin').value = end;
+    
+    const h_start = event && event.startStr.includes('T') ? event.startStr.split('T')[1].substring(0,5) : "";
+    const h_end = event && event.endStr && event.endStr.includes('T') ? event.endStr.split('T')[1].substring(0,5) : "";
+    
+    document.getElementById('prog_hora_inicio').value = h_start;
+    document.getElementById('prog_hora_fin').value = h_end;
+    
+    document.getElementById('prog_controlador').value = (event && event.extendedProps.controlador_id) ? event.extendedProps.controlador_id : "{{ g.user.id }}";
+    document.getElementById('prog_controlado').value = event ? (event.extendedProps.controlado_id || "") : "";
+    document.getElementById('prog_controlado').dataset.userSelected = (event && event.extendedProps.controlado_id) ? 'true' : '';
+    bindProgramadoAutocomplete();
+    autocompletarControladoProgramado();
+    
+    // Recurrencia
+    const rec = event ? (event.extendedProps.recurrencia || "") : "";
+    const rec_fin = event ? (event.extendedProps.recurrencia_fin || "") : "";
+    
+    document.getElementById('prog_es_recurrente').checked = !!rec;
+    toggleModoRecurrente(!!rec);
+
+    document.getElementById('prog_recurrencia').value = rec;
+    document.getElementById('prog_recurrencia_fin').value = rec_fin;
+    
+    let tipo = event ? (event.extendedProps.tipo_control || 'P') : 'P';
+    document.getElementById('prog_tipo_control').value = tipo;
+    document.getElementById('prog_plan_auditoria').value = event ? (event.extendedProps.plan_auditoria || "") : "";
+    document.getElementById('prog_auditor_jefe_nombre').value = event ? (event.extendedProps.auditor_jefe_nombre || "") : "";
+    document.getElementById('prog_auditor_acompanante_nombre').value = event ? (event.extendedProps.auditor_acompanante_nombre || "") : "";
+    document.getElementById('prog_auditor_formacion_nombre').value = event ? (event.extendedProps.auditor_formacion_nombre || "") : "";
+    togglePlanAuditoria(tipo);
+
+    // Toggle delete buttons
+    if (event) {
+        if (!!rec) {
+            document.getElementById('group_eliminar_recurrencia').style.display = 'flex';
+            document.getElementById('btnEliminarSimple').style.display = 'none';
+        } else {
+            document.getElementById('group_eliminar_recurrencia').style.display = 'none';
+            document.getElementById('btnEliminarSimple').style.display = 'inline-block';
+        }
+    } else {
+        document.getElementById('group_eliminar_recurrencia').style.display = 'none';
+        document.getElementById('btnEliminarSimple').style.display = 'none';
+    }
+
+    document.getElementById('modalTituloLabel').innerText = event ? 'Editar Control' : 'Programar Control';
+    
+    // Visor Read-Only handling
+    const canEdit = !isVisor && (isAdmin || !event);
+    document.getElementById('prog_titulo').disabled = !canEdit;
+    document.getElementById('prog_sector').disabled = !canEdit;
+    document.getElementById('prog_controlado').disabled = !canEdit;
+    document.getElementById('prog_controlador').disabled = !canEdit;
+    document.getElementById('prog_hora_inicio').disabled = !canEdit;
+    document.getElementById('prog_hora_fin').disabled = !canEdit;
+    document.getElementById('prog_recurrencia').disabled = !canEdit;
+    document.getElementById('prog_recurrencia_fin').disabled = !canEdit;
+    document.getElementById('prog_es_recurrente').disabled = !canEdit;
+    
+    const saveBtn = document.querySelector('.btn-warning[onclick="guardarProgramacion()"]');
+    if (saveBtn) saveBtn.style.display = canEdit ? 'inline-block' : 'none';
+    
+    if (isVisor) {
+        document.getElementById('group_eliminar_recurrencia').style.display = 'none';
+        document.getElementById('btnEliminarSimple').style.display = 'none';
+    }
+
+    modalProg.show();
+}
+
+function abrirModalRealizar(event) {
+    const props = event.extendedProps;
+    document.getElementById('real_event_id').value = props.original_id || event.id;
+    document.getElementById('real_instance_date').value = event.startStr.split('T')[0];
+    
+    // Sync hidden fields for deletion logic
+    document.getElementById('prog_event_id').value = props.original_id || event.id;
+    document.getElementById('prog_fecha_inicio').value = event.startStr.split('T')[0];
+    document.getElementById('prog_es_recurrente').checked = !!props.recurrencia;
+
+    // Toggle delete buttons
+    if (!!props.recurrencia) {
+        document.getElementById('group_eliminar_recurrencia_real').style.display = 'flex';
+        document.getElementById('btnEliminarSimple_real').style.display = 'none';
+    } else {
+        document.getElementById('group_eliminar_recurrencia_real').style.display = 'none';
+        document.getElementById('btnEliminarSimple_real').style.display = 'inline-block';
+    }
+    
+    document.getElementById('event-info').innerHTML = `
+        <h6 class="fw-bold mb-1">${event.title}</h6>
+        <p class="mb-0 small text-muted">Sector: <strong>${props.sector_nombre}</strong></p>
+        <p class="mb-0 small text-muted">Controlador: <strong>${props.controlador_nombre}</strong></p>
+        <p class="mb-0 small text-muted">Controlado: <strong>${props.controlado_nombre}</strong></p>
+    `;
+
+    // Populate the unlinked controls selector
+    const sel = document.getElementById('real_control');
+    sel.innerHTML = '<option value="">Sólo marcar realizado (sin reporte)</option>';
+    allControles.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `ID ${c.id} - ${c.fecha_control} - ${c.sector}`;
+        sel.appendChild(opt);
+    });
+
+    modalReal.show();
+}
+
+async function guardarProgramacion() {
+    const data = {
+        event_id: document.getElementById('prog_event_id').value || null,
+        titulo: document.getElementById('prog_titulo').value,
+        sector_id: document.getElementById('prog_sector').value,
+        fecha_inicio: document.getElementById('prog_fecha_inicio').value,
+        fecha_fin: document.getElementById('prog_fecha_fin').value,
+        hora_inicio: document.getElementById('prog_hora_inicio').value || null,
+        hora_fin: document.getElementById('prog_hora_fin').value || null,
+        controlador_id: document.getElementById('prog_controlador').value || null,
+        controlado_id: document.getElementById('prog_controlado').value || null,
+        recurrencia: document.getElementById('prog_recurrencia').value || null,
+        recurrencia_fin: document.getElementById('prog_recurrencia_fin').value || null,
+        new_state: document.getElementById('prog_tipo_control').value,
+        plan_auditoria: document.getElementById('prog_plan_auditoria').value || null,
+        auditor_jefe_nombre: document.getElementById('prog_auditor_jefe_nombre').value || null,
+        auditor_acompanante_nombre: document.getElementById('prog_auditor_acompanante_nombre').value || null,
+        auditor_formacion_nombre: document.getElementById('prog_auditor_formacion_nombre').value || null
+    };
+
+    if (!data.fecha_inicio || !data.fecha_fin) {
+        alert("Las fechas son obligatorias.");
+        return;
+    }
+
+    try {
+        const response = await fetch("{{ url_for('toggle_cronograma') }}", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(data)
+        });
+        const res = await response.json();
+        if (res.status === "success") {
+            calendar.refetchEvents();
+            modalProg.hide();
+        }
+    } catch (e) { alert("Error saving."); }
+}
+
+async function guardarRealizado() {
+    const eventId = document.getElementById('real_event_id').value;
+    const controlId = document.getElementById('real_control').value || null;
+    
+    try {
+        const response = await fetch("{{ url_for('toggle_cronograma') }}", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                event_id: eventId,
+                instance_date: document.getElementById('real_instance_date').value,
+                control_id: controlId,
+                new_state: 'R'
+            })
+        });
+        const res = await response.json();
+        if (res.status === "success") {
+            calendar.refetchEvents();
+            modalReal.hide();
+        }
+    } catch (e) { alert("Error saving."); }
+}
+
+async function borrarAsignacion(borrarTodaLaSerie = false) {
+    const eventId = document.getElementById('prog_event_id').value;
+    if (!eventId) return;
+
+    if (borrarTodaLaSerie) {
+        if (!confirm("¿Está seguro de eliminar TODA la serie programada?")) return;
+    } else {
+        if (!confirm("¿Eliminar esta programación? (Solo esta fecha)")) return;
+    }
+    
+    try {
+        const payload = { event_id: eventId, new_state: 'E' };
+        if (!borrarTodaLaSerie) {
+            payload.instance_date = document.getElementById('prog_fecha_inicio').value;
+        }
+
+        const response = await fetch("{{ url_for('toggle_cronograma') }}", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+        if ((await response.json()).status === "success") {
+            calendar.refetchEvents();
+            modalProg.hide();
+            modalReal.hide();
+        }
+    } catch(e) {}
+}
+
+function borrarAsignacionDesdeRealizar() {
+    // This is now obsolete as the footer buttons call borrarAsignacion(bool) directly
+}
+
+function irAReporte() {
+    const props = selectedEvent.extendedProps;
+    const dateStr = selectedEvent.startStr.split('T')[0];
+    const eventId = props.original_id || selectedEvent.id;
+    
+    let baseUrl = props.tipo_control === 'A' ? "/nueva-auditoria" : "/nuevo-control";
+    let url = `${baseUrl}?sector_id=${props.sector_id}&controlador_id=${props.controlador_id}&controlado_id=${props.controlado_id}&fecha_control=${dateStr}&event_id=${eventId}`;
+    
+    if (props.tipo_control === 'A') {
+        url += `&jefe_nombre=${encodeURIComponent(props.jefe_nombre || '')}`;
+        url += `&acompanante_nombre=${encodeURIComponent(props.acompanante_nombre || '')}`;
+        url += `&formacion_nombre=${encodeURIComponent(props.formacion_nombre || '')}`;
+    }
+    
+    window.location.href = url;
+}
+
+function abrirEdicionDesdeMRealizar() {
+    if (modalReal) modalReal.hide();
+    abrirModalProgramar(selectedEvent);
+}
+
+function cambiarModoColor(modo) {
+    colorMode = modo;
+    if (calendar) calendar.render();
+}
+
+function togglePlanAuditoria(tipo) {
+    const div = document.getElementById('div_plan_auditoria');
+    div.style.display = (tipo === 'A') ? 'block' : 'none';
+}
+
+let modalBulk = null;
+function abrirModalBulkAuditoria() {
+    if (!modalBulk) modalBulk = new bootstrap.Modal(document.getElementById('modalBulkAuditoria'));
+    delete document.getElementById('bulk_titulo').dataset.userEdited;
+    document.getElementById('bulk_tipo_control').value = 'A';
+    document.getElementById('bulk_titulo').value = 'Auditoría Programada';
+    document.getElementById('bulk_controlado').value = '';
+    document.getElementById('bulk_fecha_batch').value = '';
+    document.getElementById('bulk_plan_auditoria').value = '';
+    document.getElementById('bulk_auditor_jefe_nombre').value = '';
+    document.getElementById('bulk_auditor_acompanante_nombre').value = '';
+    document.getElementById('bulk_auditor_formacion_nombre').value = '';
+    document.querySelectorAll('.bulk-sector-check').forEach(cb => {
+        cb.checked = false;
+        toggleBulkDateInput(cb.value, false);
+    });
+    document.querySelectorAll('.bulk-sector-date').forEach(input => input.value = '');
+    toggleBulkPlanAuditoria('A');
+    modalBulk.show();
+}
+
+function toggleBulkPlanAuditoria(tipo) {
+    const div = document.getElementById('bulk_div_plan_auditoria');
+    const titulo = document.getElementById('bulk_titulo');
+    if (!div || !titulo) return;
+
+    div.style.display = (tipo === 'A') ? 'block' : 'none';
+    if (!titulo.dataset.userEdited) {
+        titulo.value = tipo === 'A' ? 'Auditoría Programada' : 'Control Documental Programado';
+    }
+}
+
+function selectAllBulkSectors(checked) {
+    document.querySelectorAll('.bulk-sector-check').forEach(cb => {
+        cb.checked = checked;
+        toggleBulkDateInput(cb.value, checked);
+    });
+}
+
+function toggleBulkDateInput(sectorId, checked) {
+    const input = document.getElementById('bulk_date_' + sectorId);
+    if (input) input.disabled = !checked;
+}
+
+function applyBatchDate() {
+    const batchDate = document.getElementById('bulk_fecha_batch').value;
+    if (!batchDate) return;
+    document.querySelectorAll('.bulk-sector-check:checked').forEach(cb => {
+        const input = document.getElementById('bulk_date_' + cb.value);
+        if (input) input.value = batchDate;
+    });
+}
+
+async function guardarBulkAuditoria() {
+    const checked = document.querySelectorAll('.bulk-sector-check:checked');
+    const assignments = [];
+    
+    checked.forEach(cb => {
+        const dateInput = document.getElementById('bulk_date_' + cb.value);
+        if (dateInput && dateInput.value) {
+            assignments.push({
+                sector_id: cb.value,
+                fecha: dateInput.value
+            });
+        }
+    });
+
+    const data = {
+        assignments: assignments,
+        controlador_id: document.getElementById('bulk_controlador').value,
+        controlado_id: document.getElementById('bulk_controlado').value || null,
+        titulo: document.getElementById('bulk_titulo').value || null,
+        tipo_control: document.getElementById('bulk_tipo_control').value,
+        plan_auditoria: document.getElementById('bulk_plan_auditoria').value || null,
+        auditor_jefe_nombre: document.getElementById('bulk_auditor_jefe_nombre').value || null,
+        auditor_acompanante_nombre: document.getElementById('bulk_auditor_acompanante_nombre').value || null,
+        auditor_formacion_nombre: document.getElementById('bulk_auditor_formacion_nombre').value || null
+    };
+
+    if (assignments.length === 0) {
+        alert("Selecciona al menos un sector y asígnale una fecha.");
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/cronograma/bulk_create", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(data)
+        });
+        const res = await response.json();
+        if (res.status === "success") {
+            alert(`Se han creado ${res.count} auditorías.`);
+            calendar.refetchEvents();
+            modalBulk.hide();
+        } else {
+            alert("Error: " + res.message);
+        }
+    } catch (e) { alert("Error de servidor."); }
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo control{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Nuevo control</h2>
+        <p class="text-muted mb-0">Carga guiada del control documental</p>
+    </div>
+</div>
+
+<form method="post" class="vstack gap-4" enctype="multipart/form-data">
+    <input type="hidden" name="event_id" value="{{ request.args.get('event_id', '') }}">
+    <input type="hidden" name="tipo_control" value="{{ request.args.get('tipo_control', 'P') }}">
+    <input type="hidden" name="auditor_jefe_id" value="{{ request.args.get('auditor_jefe_id', '') }}">
+    <input type="hidden" name="auditor_acompanante_id" value="{{ request.args.get('auditor_acompanante_id', '') }}">
+    <input type="hidden" name="auditor_formacion_id" value="{{ request.args.get('auditor_formacion_id', '') }}">
+
+    {% if request.args.get('tipo_control') == 'A' %}
+    <div class="card border-primary shadow-sm mb-4">
+        <div class="card-body bg-light">
+            <h5 class="text-primary fw-bold"><i class="bi bi-shield-check me-2"></i>Información de Auditoría</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Evaluación de Riesgos (PDF prehecho)</label>
+                    <input type="file" name="riesgos_pdf" class="form-control" accept=".pdf">
+                    <div class="form-text">Carga la evaluación de riesgos del año pasado.</div>
+                </div>
+                <div class="col-md-6 border-start">
+                    <p class="mb-1 small"><strong>Equipo Auditores:</strong></p>
+                    <ul class="list-unstyled mb-0 small">
+                        <li><i class="bi bi-person-fill text-primary"></i> Jefe: {{ request.args.get('jefe_nombre', 'No asignado') }}</li>
+                        <li><i class="bi bi-person text-secondary"></i> Acompañante: {{ request.args.get('acompanante_nombre', 'No asignado') }}</li>
+                        <li><i class="bi bi-person text-muted"></i> Formación: {{ request.args.get('formacion_nombre', 'No asignado') }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="card content-card">
+        <div class="card-body row g-3">
+            <h5>Datos generales</h5>
+
+            <div class="col-md-4">
+                <label class="form-label">Planta</label>
+                <input type="text" class="form-control" value="Planta Única" disabled>
+                <input type="hidden" name="planta_id" value="1">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Sector</label>
+                <select name="sector_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for sector in sectores %}
+                    <option value="{{ sector.id }}" {% if request.args.get('sector_id') == sector.id|string %}selected{% endif %}>{{ sector.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Fecha</label>
+                <input type="date" name="fecha_control" class="form-control" value="{{ request.args.get('fecha_control', '') }}" required>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Controlador (Carga la info)</label>
+                <select name="controlador_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for usuario in usuarios %}
+                    <option value="{{ usuario.id }}" data-sector="{{ usuario.sector_id or '' }}" {% if request.args.get('controlador_id') == usuario.id|string or (not request.args.get('controlador_id') and g.user.id == usuario.id) %}selected{% endif %}>
+                        {{ usuario.nombre }} {{ usuario.apellido }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="responsable_id" value="">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Controlado (Recibe correo)</label>
+                <select name="controlado_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for usuario in usuarios %}
+                    <option value="{{ usuario.id }}" data-sector="{{ usuario.sector_id or '' }}" {% if request.args.get('controlado_id') == usuario.id|string %}selected{% endif %}>
+                        {{ usuario.nombre }} {{ usuario.apellido }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">¿Sector con químicos?</label>
+                <select name="sector_tiene_quimicos" id="sector_tiene_quimicos" class="form-select">
+                    <option value="no" selected>No</option>
+                    <option value="si">Sí</option>
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Observaciones generales</label>
+                <textarea name="observaciones_generales" rows="3" class="form-control"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="card content-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Personal</h5>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addPersonalRow()">Agregar fila</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table" id="tablaPersonal">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Conoce gestion</th>
+                            <th>Fue capacitado</th>
+                            <th>Requiere capacitacion</th>
+                            <th>Observacion</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card content-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Documentos</h5>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDocumentoRow()">Agregar fila</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table" id="tablaDocumentos">
+                    <thead>
+                        <tr>
+                            <th>Codigo</th>
+                            <th>Revision</th>
+                            <th>Estado</th>
+                            <th>Observacion</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card content-card" id="bloqueQuimicos" style="display: none;">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Productos químicos</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addQuimicoRow()">Agregar fila</button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table" id="tablaQuimicos">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Bajo llave</th>
+                        <th>Envase original</th>
+                        <th>Etiqueta correcta</th>
+                        <th>Hoja seguridad</th>
+                            <th>Observacion</th>
+                        <th>Medida</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-light">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Guardar control</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function autocompletarResponsableSector() {
+    const sectorSelect = document.querySelector('select[name="sector_id"]');
+    const controladoSelect = document.querySelector('select[name="controlado_id"]');
+    const controladorSelect = document.querySelector('select[name="controlador_id"]');
+    if (!sectorSelect) return;
+
+    const sectorId = sectorSelect.value;
+    if (!sectorId) return;
+
+    if (controladoSelect && controladoSelect.dataset.userSelected !== 'true') {
+        const controladoMatch = Array.from(controladoSelect.options).find(opt => opt.getAttribute('data-sector') === sectorId);
+        if (controladoMatch) {
+            controladoSelect.value = controladoMatch.value;
+        }
+    }
+
+    if (controladorSelect && controladorSelect.dataset.userSelected !== 'true') {
+        const controladorMatch = Array.from(controladorSelect.options).find(opt => opt.getAttribute('data-sector') === sectorId);
+        if (controladorMatch) {
+            controladorSelect.value = controladorMatch.value;
+        }
+    }
+}
+
+function toggleQuimicos() {
+    const select = document.getElementById('sector_tiene_quimicos');
+    const bloque = document.getElementById('bloqueQuimicos');
+    const tbody = document.querySelector('#tablaQuimicos tbody');
+
+    if (select.value === 'si') {
+        bloque.style.display = 'block';
+
+        if (tbody.children.length === 0) {
+            addQuimicoRow();
+        }
+    } else {
+        bloque.style.display = 'none';
+        tbody.innerHTML = '';
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    addPersonalRow();
+    addDocumentoRow();
+
+    const sectorSelect = document.querySelector('select[name="sector_id"]');
+    const controladoSelect = document.querySelector('select[name="controlado_id"]');
+    const controladorSelect = document.querySelector('select[name="controlador_id"]');
+    [controladoSelect, controladorSelect].filter(Boolean).forEach((select) => {
+        if (select.value) {
+            select.dataset.userSelected = 'true';
+        }
+        select.addEventListener('change', () => {
+            select.dataset.userSelected = select.value ? 'true' : '';
+        });
+    });
+    if (sectorSelect) {
+        sectorSelect.addEventListener('change', autocompletarResponsableSector);
+    }
+
+    const selectQuimicos = document.getElementById('sector_tiene_quimicos');
+    selectQuimicos.addEventListener('change', toggleQuimicos);
+
+    autocompletarResponsableSector();
+    toggleQuimicos();
+});
+</script>
+{% endblock %}

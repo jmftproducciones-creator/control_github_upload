@@ -1,0 +1,16 @@
+﻿[Unit]
+Description=Control documental Flask app
+After=network.target mysql.service
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/var/www/control
+EnvironmentFile=/var/www/control/.env
+ExecStartPre=/var/www/control/.venv/bin/python /var/www/control/init_db.py
+ExecStart=/var/www/control/.venv/bin/gunicorn -c /var/www/control/deploy/gunicorn.conf.py wsgi:application
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

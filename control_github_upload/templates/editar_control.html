@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% block title %}Editar control #{{ control.id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Editar control #{{ control.id }}</h2>
+        <p class="text-muted mb-0">Modificá los datos del control ya guardado</p>
+    </div>
+    <a href="{{ url_for('detalle_control', control_id=control.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+</div>
+
+<form method="post" class="vstack gap-4" enctype="multipart/form-data">
+    <div class="card content-card">
+        <div class="card-body row g-3">
+            <h5>Datos generales</h5>
+
+            <div class="col-md-4">
+                <label class="form-label">Planta</label>
+                <input type="text" class="form-control" value="Planta Única" disabled>
+                <input type="hidden" name="planta_id" value="{{ control.planta_id }}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Sector</label>
+                <select name="sector_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for sector in sectores %}
+                    <option value="{{ sector.id }}" {% if control.sector_id==sector.id %}selected{% endif %}>{{
+                        sector.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Fecha</label>
+                <input type="date" name="fecha_control" class="form-control" value="{{ control.fecha_control }}"
+                    required>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Controlador (Carga la info)</label>
+                <select name="controlador_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for usuario in usuarios %}
+                    <option value="{{ usuario.id }}" {% if control.controlador_id==usuario.id %}selected{% endif %}>
+                        {{ usuario.nombre }} {{ usuario.apellido }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Controlado (Recibe correo)</label>
+                <select name="controlado_id" class="form-select" required>
+                    <option value="">Seleccionar</option>
+                    {% for usuario in usuarios %}
+                    <option value="{{ usuario.id }}" {% if control.controlado_id==usuario.id %}selected{% endif %}>
+                        {{ usuario.nombre }} {{ usuario.apellido }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">¿Sector con químicos?</label>
+                <select name="sector_tiene_quimicos" id="sector_tiene_quimicos" class="form-select">
+                    <option value="no" {% if not control.sector_tiene_quimicos %}selected{% endif %}>No</option>
+                    <option value="si" {% if control.sector_tiene_quimicos %}selected{% endif %}>Sí</option>
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Observaciones generales</label>
+                <textarea name="observaciones_generales" rows="3"
+                    class="form-control">{{ control.observaciones_generales or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- PERSONAL -->
+    <div class="card content-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Personal</h5>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addPersonalRow()">Agregar
+                    fila</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table" id="tablaPersonal">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Conoce gestion</th>
+                            <th>Fue capacitado</th>
+                            <th>Requiere capacitacion</th>
+                            <th>Observacion</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in personal %}
+                        <tr>
+                            <td><input type="text" name="personal_nombre[]" class="form-control form-control-sm"
+                                    value="{{ p.nombre_apellido }}"></td>
+                            <td>
+                                <select name="personal_conoce[]" class="form-select form-select-sm">
+                                    <option value="si" {% if p.conoce_gestion_documental %}selected{% endif %}>Sí
+                                    </option>
+                                    <option value="no" {% if not p.conoce_gestion_documental %}selected{% endif %}>No
+                                    </option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="personal_capacitacion[]" class="form-select form-select-sm">
+                                    <option value="si" {% if p.realizo_capacitacion %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if not p.realizo_capacitacion %}selected{% endif %}>No
+                                    </option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="personal_requiere[]" class="form-select form-select-sm">
+                                    <option value="si" {% if p.requiere_capacitacion %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if not p.requiere_capacitacion %}selected{% endif %}>No
+                                    </option>
+                                </select>
+                            </td>
+                            <td><input type="text" name="personal_observacion[]" class="form-control form-control-sm"
+                                    value="{{ p.observaciones or '' }}"></td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="removeRow(this)">X</button></td>
+                        </tr>
+                        {% else %}
+                        <!-- empty populated by JS on load if needed -->
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOCUMENTOS -->
+    <div class="card content-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Documentos</h5>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDocumentoRow()">Agregar
+                    fila</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table" id="tablaDocumentos">
+                    <thead>
+                        <tr>
+                            <th>Codigo</th>
+                            <th>Revision</th>
+                            <th>Estado</th>
+                            <th>Observacion</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in documentos %}
+                        <tr>
+                            <td><input type="text" name="documento_codigo[]" class="form-control form-control-sm"
+                                    value="{{ d.codigo_documento or '' }}"></td>
+                            <td><input type="text" name="documento_revision[]" class="form-control form-control-sm"
+                                    value="{{ d.revision or '' }}"></td>
+                            <td>
+                                <select name="documento_estado[]" class="form-select form-select-sm">
+                                    <option value="correcto" {% if d.estado=='correcto' %}selected{% endif %}>Correcto
+                                    </option>
+                                    <option value="documento_obsoleto" {% if d.estado=='documento_obsoleto' %}selected{%
+                                        endif %}>Documento obsoleto</option>
+                                    <option value="sin_copia_controlada" {% if d.estado=='sin_copia_controlada'
+                                        %}selected{% endif %}>Sin copia controlada</option>
+                                    <option value="documento_no_controlado" {% if d.estado=='documento_no_controlado'
+                                        %}selected{% endif %}>Documento no controlado</option>
+                                    <option value="otro" {% if d.estado=='otro' %}selected{% endif %}>Otro</option>
+                                </select>
+                            </td>
+                            <td>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" name="documento_observacion[]" class="form-control" placeholder="Observación" value="{{ d.observaciones or '' }}">
+                                    <label class="btn btn-outline-secondary mb-0" title="Adjuntar Foto" onchange="this.classList.replace('btn-outline-secondary', 'btn-success')">
+                                        <i class="bi bi-camera"></i>
+                                        <input type="file" name="documento_foto[]" accept="image/*" style="display: none;">
+                                    </label>
+                                </div>
+                            </td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="removeRow(this)">X</button></td>
+                        </tr>
+                        {% else %}
+                        <!-- empty populated by JS on load if needed -->
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUIMICOS -->
+    <div class="card content-card" id="bloqueQuimicos"
+        {% if not control.sector_tiene_quimicos %}style="display: none;"{% endif %}>
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Productos químicos</h5>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addQuimicoRow()">Agregar
+                    fila</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table" id="tablaQuimicos">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Bajo llave</th>
+                            <th>Envase original</th>
+                            <th>Etiqueta correcta</th>
+                            <th>Hoja seguridad</th>
+                            <th>Observacion</th>
+                            <th>Medida</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for q in quimicos %}
+                        <tr>
+                            <td><input type="text" name="quimico_nombre[]" class="form-control form-control-sm"
+                                    value="{{ q.nombre_producto }}"></td>
+                            <td>
+                                <select name="quimico_llave[]" class="form-select form-select-sm">
+                                    <option value="si" {% if q.bajo_llave %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if not q.bajo_llave %}selected{% endif %}>No</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="quimico_envase[]" class="form-select form-select-sm">
+                                    <option value="si" {% if q.envase_original %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if not q.envase_original %}selected{% endif %}>No</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="quimico_etiqueta[]" class="form-select form-select-sm">
+                                    <option value="si" {% if q.etiquetado_correcto %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if not q.etiquetado_correcto %}selected{% endif %}>No</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select name="quimico_hoja[]" class="form-select form-select-sm">
+                                    <option value="si" {% if q.hoja_seguridad %}selected{% endif %}>Sí</option>
+                                    <option value="no" {% if not q.hoja_seguridad %}selected{% endif %}>No</option>
+                                </select>
+                            </td>
+                            <td><input type="text" name="quimico_observacion[]" class="form-control form-control-sm"
+                                    value="{{ q.observaciones or '' }}"></td>
+                            <td><input type="text" name="quimico_medida[]" class="form-control form-control-sm"
+                                    value="{{ q.medida or '' }}"></td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger"
+                                    onclick="removeRow(this)">X</button></td>
+                        </tr>
+                        {% else %}
+                        <!-- empty populated by JS on load if needed -->
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a href="{{ url_for('detalle_control', control_id=control.id) }}" class="btn btn-light">Cancelar</a>
+        <button type="submit" class="btn btn-warning fw-bold">
+            <i class="bi bi-floppy me-1"></i> Guardar cambios
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleQuimicos() {
+        const select = document.getElementById('sector_tiene_quimicos');
+        const bloque = document.getElementById('bloqueQuimicos');
+        const tbody = document.querySelector('#tablaQuimicos tbody');
+
+        if (select.value === 'si') {
+            bloque.style.display = 'block';
+            if (tbody.children.length === 0) {
+                addQuimicoRow();
+            }
+        } else {
+            bloque.style.display = 'none';
+            // No borramos innerHTML para no perder datos si el usuario cambia de opinión accidentalmente.
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectQuimicos = document.getElementById('sector_tiene_quimicos');
+        selectQuimicos.addEventListener('change', toggleQuimicos);
+    });
+</script>
+{% endblock %}

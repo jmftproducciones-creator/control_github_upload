@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}Nueva Auditoria{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1 text-primary"><i class="bi bi-shield-check me-2"></i>Nueva Auditoria</h2>
+        <p class="text-muted mb-0">Registro detallado de auditoria planificada</p>
+    </div>
+    <a href="{{ url_for('historial') }}" class="btn btn-outline-secondary">Cancelar</a>
+</div>
+
+<form method="post" class="vstack gap-4" enctype="multipart/form-data">
+    <input type="hidden" name="event_id" value="{{ request.args.get('event_id', '') }}">
+    <input type="hidden" name="tipo_control" value="A">
+
+    <div class="card content-card border-0 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title fw-bold mb-4 text-secondary">Datos de Localizacion</h5>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Planta</label>
+                    <input type="text" class="form-control bg-light" value="Planta Unica" disabled>
+                    <input type="hidden" name="planta_id" value="1">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Sector Auditado</label>
+                    <select name="sector_id" class="form-select" required>
+                        <option value="">Seleccionar sector</option>
+                        {% for sector in sectores %}
+                        <option value="{{ sector.id }}" {% if request.args.get('sector_id') == sector.id|string %}selected{% endif %}>{{ sector.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card content-card border-0 shadow-sm border-start border-primary border-4">
+        <div class="card-body">
+            <h5 class="card-title fw-bold mb-4 text-primary">Periodo y Equipo Auditor</h5>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Fecha Inicio</label>
+                    <input type="date" name="fecha_control" class="form-control" value="{{ request.args.get('fecha_control', '') }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Fecha Fin (Rango)</label>
+                    <input type="date" name="fecha_fin_control" class="form-control" value="{{ request.args.get('fecha_fin_control', request.args.get('fecha_control', '')) }}">
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-primary">Auditor Jefe</label>
+                    <textarea name="auditor_jefe_nombre" class="form-control mb-2" rows="2" placeholder="Uno o varios nombres. Separar por coma o salto de linea" required>{{ request.args.get('jefe_nombre', '') }}</textarea>
+                    <div class="person-picker" data-target="auditor_jefe_nombre">
+                        {% for u in usuarios %}
+                        <label class="person-option">
+                            <input type="checkbox" name="auditor_jefe_ids" value="{{ u.id }}" data-person-name="{{ u.nombre }} {{ u.apellido }}" data-sector="{{ u.sector_id or '' }}">
+                            <span>{{ u.nombre }} {{ u.apellido }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Acompanante</label>
+                    <textarea name="auditor_acompanante_nombre" class="form-control mb-2" rows="2" placeholder="Uno o varios nombres. Separar por coma o salto de linea">{{ request.args.get('acompanante_nombre', '') }}</textarea>
+                    <div class="person-picker" data-target="auditor_acompanante_nombre">
+                        {% for u in usuarios %}
+                        <label class="person-option">
+                            <input type="checkbox" name="auditor_acompanante_ids" value="{{ u.id }}" data-person-name="{{ u.nombre }} {{ u.apellido }}" data-sector="{{ u.sector_id or '' }}">
+                            <span>{{ u.nombre }} {{ u.apellido }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted">En Formacion</label>
+                    <textarea name="auditor_formacion_nombre" class="form-control mb-2" rows="2" placeholder="Uno o varios nombres. Separar por coma o salto de linea">{{ request.args.get('formacion_nombre', '') }}</textarea>
+                    <div class="person-picker" data-target="auditor_formacion_nombre">
+                        {% for u in usuarios %}
+                        <label class="person-option">
+                            <input type="checkbox" name="auditor_formacion_ids" value="{{ u.id }}" data-person-name="{{ u.nombre }} {{ u.apellido }}" data-sector="{{ u.sector_id or '' }}">
+                            <span>{{ u.nombre }} {{ u.apellido }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card content-card border-0 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title fw-bold mb-4 text-secondary">Documentacion y Resultados</h5>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Carga de Evaluacion de Riesgos (PDF)</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-file-earmark-pdf"></i></span>
+                        <input type="file" name="riesgos_pdf" class="form-control" accept=".pdf">
+                    </div>
+                    <div class="form-text mt-2 text-warning">
+                        <i class="bi bi-info-circle me-1"></i> Sube la evaluacion de riesgos realizada previamente.
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Responsable de Planta (Recibe correo)</label>
+                    <select name="controlado_id" class="form-select" required>
+                        <option value="">Seleccionar responsable</option>
+                        {% for u in usuarios %}
+                        <option value="{{ u.id }}" data-sector="{{ u.sector_id or '' }}" {% if request.args.get('controlado_id') == u.id|string %}selected{% endif %}>{{ u.nombre }} {{ u.apellido }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Observaciones y Resumen de la Auditoria</label>
+                    <textarea name="observaciones_generales" rows="6" class="form-control" placeholder="Escribe aqui los hallazgos principales, desviaciones detectadas y recomendaciones..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-3 mt-2">
+        <button type="reset" class="btn btn-light px-4">Limpiar</button>
+        <button type="submit" class="btn btn-primary px-5 fw-bold"><i class="bi bi-send-check me-2"></i>MANDAR A CONFIRMAR</button>
+    </div>
+</form>
+
+<script>
+function splitNames(value) {
+    return value
+        .split(/\r?\n|,/)
+        .map(item => item.trim())
+        .filter(Boolean);
+}
+
+function syncPickerFromTextarea(textarea, picker) {
+    const names = new Set(splitNames(textarea.value).map(name => name.toLowerCase()));
+    picker.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        const personName = (checkbox.dataset.personName || '').trim().toLowerCase();
+        checkbox.checked = names.has(personName);
+    });
+}
+
+function syncTextareaFromPicker(textarea, picker) {
+    const manualNames = splitNames(textarea.value);
+    const selectedNames = Array.from(picker.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(checkbox => checkbox.dataset.personName.trim());
+    const selectedSet = new Set(selectedNames.map(name => name.toLowerCase()));
+    const manualOnly = manualNames.filter(name => !selectedSet.has(name.toLowerCase()));
+    textarea.value = [...selectedNames, ...manualOnly].join('\n');
+}
+
+function initPersonPickers() {
+    document.querySelectorAll('.person-picker').forEach(picker => {
+        const targetName = picker.dataset.target;
+        const textarea = document.querySelector(`textarea[name="${targetName}"]`);
+        if (!textarea) return;
+
+        syncPickerFromTextarea(textarea, picker);
+
+        picker.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', () => syncTextareaFromPicker(textarea, picker));
+        });
+
+        textarea.addEventListener('blur', () => syncPickerFromTextarea(textarea, picker));
+    });
+}
+
+function autocompletarResponsableAuditoria() {
+    const sectorSelect = document.querySelector('select[name="sector_id"]');
+    const controladoSelect = document.querySelector('select[name="controlado_id"]');
+    if (!sectorSelect || !controladoSelect) return;
+
+    const sectorId = sectorSelect.value;
+    if (!sectorId || controladoSelect.dataset.userSelected === 'true') return;
+
+    const match = Array.from(controladoSelect.options).find(opt => opt.getAttribute('data-sector') === sectorId);
+    if (match) {
+        controladoSelect.value = match.value;
+    }
+}
+
+function autocompletarEquipoAuditor() {
+    const sectorSelect = document.querySelector('select[name="sector_id"]');
+    if (!sectorSelect || !sectorSelect.value) return;
+
+    document.querySelectorAll('.person-picker').forEach((picker) => {
+        const textarea = document.querySelector(`textarea[name="${picker.dataset.target}"]`);
+        if (!textarea || textarea.value.trim()) return;
+
+        const candidates = Array.from(picker.querySelectorAll('input[type="checkbox"]'))
+            .filter((checkbox) => checkbox.dataset.sector === sectorSelect.value);
+        if (!candidates.length) return;
+
+        if (picker.dataset.target === 'auditor_jefe_nombre') {
+            candidates[0].checked = true;
+        }
+        syncTextareaFromPicker(textarea, picker);
+    });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const sectorSelect = document.querySelector('select[name="sector_id"]');
+    const controladoSelect = document.querySelector('select[name="controlado_id"]');
+    if (controladoSelect) {
+        if (controladoSelect.value) {
+            controladoSelect.dataset.userSelected = 'true';
+        }
+        controladoSelect.addEventListener('change', () => {
+            controladoSelect.dataset.userSelected = controladoSelect.value ? 'true' : '';
+        });
+    }
+    if (sectorSelect) {
+        sectorSelect.addEventListener('change', () => {
+            autocompletarResponsableAuditoria();
+            autocompletarEquipoAuditor();
+        });
+    }
+    initPersonPickers();
+    autocompletarResponsableAuditoria();
+    autocompletarEquipoAuditor();
+});
+</script>
+{% endblock %}

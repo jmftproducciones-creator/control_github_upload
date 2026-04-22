@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block title %}Plan de Auditoría Interna{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1 text-primary"><i class="bi bi-journal-text me-2"></i>Detalle de Auditoría Interna</h2>
+        <p class="text-muted mb-0">Completar la planificación de la auditoría y cargar la agenda</p>
+    </div>
+    <a href="{{ url_for('detalle_control', control_id=control.id) }}" class="btn btn-outline-secondary">Volver al Detalle</a>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Información base de la auditoría -->
+    <div class="col-lg-4">
+        <div class="card content-card border-0 shadow-sm h-100 border-start border-info border-4">
+            <div class="card-body">
+                <h5 class="fw-bold text-info mb-3">Información General</h5>
+                
+                <p class="mb-1 text-muted small">Área auditada</p>
+                <p class="fw-bold">{{ control.planta_nombre }} - {{ control.sector_nombre }}</p>
+
+                <p class="mb-1 text-muted small mt-3">Fechas Planificadas</p>
+                <p class="fw-bold">{{ control.fecha_control }} {% if control.fecha_fin_control %}al {{ control.fecha_fin_control }}{% endif %}</p>
+
+                <p class="mb-1 text-muted small mt-3">Auditor Líder</p>
+                <p class="fw-bold">{{ control.auditor_jefe_nombre or '-' }}</p>
+
+                <p class="mb-1 text-muted small mt-3">Auditor Acompañante</p>
+                <p class="fw-bold">{{ control.auditor_acompanante_nombre or '-' }}</p>
+
+                <p class="mb-1 text-muted small mt-3">Auditor en Formación</p>
+                <p class="fw-bold">{{ control.auditor_formacion_nombre or '-' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario del Plan -->
+    <div class="col-lg-8">
+        <form method="post" enctype="multipart/form-data" class="card content-card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="fw-bold text-secondary mb-4">Planificación Estratégica</h5>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Sistema de Gestión Auditado</label>
+                    <input type="text" name="sistema_gestion_auditoria" class="form-control" value="{{ control.sistema_gestion_auditoria or '' }}" placeholder="Ej: ISO 9001, FSSC 22000, etc.">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Objetivo de la Auditoría</label>
+                    <textarea name="objetivo_auditoria" class="form-control" rows="3" placeholder="Fin u objetivo principal que la auditoría intenta cumplir...">{{ control.objetivo_auditoria or '' }}</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Criterios de la Auditoría</label>
+                    <textarea name="criterios_auditoria" class="form-control" rows="3" placeholder="Políticas, procedimientos o requisitos frente a los cuales se auditará...">{{ control.criterios_auditoria or '' }}</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Descripción de las Actividades</label>
+                    <textarea name="descripcion_actividades_auditoria" class="form-control" rows="4" placeholder="Breve descripción general de las actividades a llevar a cabo...">{{ control.descripcion_actividades_auditoria or '' }}</textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Necesidad de Recursos</label>
+                    <textarea name="recursos_auditoria" class="form-control" rows="2" placeholder="Salas de reunión, equipos de protección, intérpretes, etc.">{{ control.recursos_auditoria or '' }}</textarea>
+                </div>
+
+                <hr class="my-4">
+
+                <h5 class="fw-bold text-secondary mb-3">Agenda de Auditoría</h5>
+                <p class="text-muted small mb-3">Construye la agenda bloque a bloque.</p>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle" id="agendaTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%">Día</th>
+                                <th style="width: 15%">Hora</th>
+                                <th style="width: 35%">Actividad/Proceso</th>
+                                <th style="width: 15%">Lugar</th>
+                                <th style="width: 15%">Auditor</th>
+                                <th style="width: 5%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="agendaBody">
+                            {% if agenda_existente %}
+                                {% for row in agenda_existente %}
+                                <tr>
+                                    <td><input type="date" name="agenda_dia[]" class="form-control form-control-sm border-0" value="{{ row.dia }}"></td>
+                                    <td><input type="time" name="agenda_hora[]" class="form-control form-control-sm border-0" value="{{ row.hora }}"></td>
+                                    <td><input type="text" name="agenda_actividad[]" class="form-control form-control-sm border-0" value="{{ row.actividad }}" placeholder="Descripción"></td>
+                                    <td><input type="text" name="agenda_lugar[]" class="form-control form-control-sm border-0" value="{{ row.lugar }}"></td>
+                                    <td><input type="text" name="agenda_auditor[]" class="form-control form-control-sm border-0" value="{{ row.auditor }}"></td>
+                                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove"><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td><input type="date" name="agenda_dia[]" class="form-control form-control-sm border-0"></td>
+                                    <td><input type="time" name="agenda_hora[]" class="form-control form-control-sm border-0"></td>
+                                    <td><input type="text" name="agenda_actividad[]" class="form-control form-control-sm border-0" placeholder="Descripción"></td>
+                                    <td><input type="text" name="agenda_lugar[]" class="form-control form-control-sm border-0"></td>
+                                    <td><input type="text" name="agenda_auditor[]" class="form-control form-control-sm border-0"></td>
+                                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove"><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 shadow-sm" onclick="addAgendaRow()">
+                    <i class="bi bi-plus-circle me-1"></i> Agregar Fila
+                </button>
+
+            </div>
+            <div class="card-footer border-top-0 pd-3 d-flex justify-content-end gap-2 pb-4 px-4 bg-transparent">
+                <button type="submit" class="btn btn-primary px-5 fw-bold"><i class="bi bi-save me-2"></i>Guardar Plan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+</style>
+
+<script>
+    function addAgendaRow() {
+        const tbody = document.getElementById('agendaBody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="date" name="agenda_dia[]" class="form-control form-control-sm border-0"></td>
+            <td><input type="time" name="agenda_hora[]" class="form-control form-control-sm border-0"></td>
+            <td><input type="text" name="agenda_actividad[]" class="form-control form-control-sm border-0" placeholder="Descripción"></td>
+            <td><input type="text" name="agenda_lugar[]" class="form-control form-control-sm border-0"></td>
+            <td><input type="text" name="agenda_auditor[]" class="form-control form-control-sm border-0"></td>
+            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger border-0 btn-remove"><i class="bi bi-trash"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    document.getElementById('agendaBody').addEventListener('click', function(e) {
+        if (e.target.closest('.btn-remove')) {
+            const row = e.target.closest('tr');
+            if (document.querySelectorAll('#agendaBody tr').length > 1) {
+                row.remove();
+            } else {
+                // Clear inputs if it's the last row
+                row.querySelectorAll('input').forEach(input => input.value = '');
+            }
+        }
+    });
+</script>
+{% endblock %}
+

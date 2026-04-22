@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Pendientes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+    <div>
+        <h2 class="mb-1 text-primary"><i class="bi bi-bell-fill me-2"></i>Bandeja de Pendientes</h2>
+        <p class="text-muted mb-0">Todas las tareas que requieren una accion tuya, reunidas en un solo lugar.</p>
+    </div>
+    <div class="pending-summary {% if pending_count > 0 %}has-items{% else %}is-clear{% endif %}">
+        <strong>{{ pending_count }}</strong>
+        <span>{% if pending_count == 1 %}pendiente activo{% else %}pendientes activos{% endif %}</span>
+    </div>
+</div>
+
+{% if pending_count == 0 %}
+<div class="card content-card border-0 shadow-sm">
+    <div class="card-body py-5 text-center">
+        <div class="pending-empty-icon mb-3"><i class="bi bi-check2-circle"></i></div>
+        <h4 class="fw-bold mb-2">No tienes pendientes</h4>
+        <p class="text-muted mb-0">Cuando aparezca una auditoria por confirmar o una CAPA para gestionar, la veras aqui.</p>
+    </div>
+</div>
+{% else %}
+<div class="row g-4">
+    <div class="col-xl-5">
+        <div class="card content-card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                    <h5 class="fw-bold mb-0">Auditorias a confirmar</h5>
+                    <span class="pending-section-pill pending-section-pill-audit">{{ pending_auditorias|length }}</span>
+                </div>
+                {% if pending_auditorias %}
+                <div class="pending-list">
+                    {% for audit in pending_auditorias %}
+                    <a href="{{ url_for('detalle_control', control_id=audit.id) }}" class="pending-item-card">
+                        <div>
+                            <div class="pending-item-title">Auditoria #{{ audit.id }}</div>
+                            <div class="pending-item-subtitle">Fecha: {{ audit.fecha_control or 'Sin fecha' }}</div>
+                        </div>
+                        <span class="pending-item-status status-audit">A confirmar</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="pending-empty-inline">
+                    <i class="bi bi-check2"></i>
+                    No tienes auditorias pendientes de confirmacion.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-7">
+        <div class="card content-card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                    <h5 class="fw-bold mb-0">CAPA por gestionar</h5>
+                    <span class="pending-section-pill pending-section-pill-capa">{{ pending_capas|length }}</span>
+                </div>
+                {% if pending_capas %}
+                <div class="pending-list">
+                    {% for capa in pending_capas %}
+                    <a href="{{ url_for('accion_correctiva', ac_id=capa.id) }}" class="pending-item-card">
+                        <div>
+                            <div class="pending-item-title">CAPA #{{ capa.id }}</div>
+                            <div class="pending-item-subtitle">{{ capa.tipo_hallazgo or 'Hallazgo' }} · {{ capa.area_auditada or 'Sin area' }}</div>
+                        </div>
+                        <span class="pending-item-status status-capa">{{ capa.estado_flujo|replace('_', ' ') }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="pending-empty-inline">
+                    <i class="bi bi-check2"></i>
+                    No tienes acciones correctivas pendientes de gestion.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

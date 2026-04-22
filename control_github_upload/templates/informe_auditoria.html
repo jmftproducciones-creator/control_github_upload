@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}Informe de Auditoría Interna{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1 text-primary"><i class="bi bi-file-earmark-check me-2"></i>Informe de Auditoría Interna</h2>
+        <p class="text-muted mb-0">Rellenar y registrar los resultados de la auditoría ejecutada</p>
+    </div>
+    <a href="{{ url_for('detalle_control', control_id=control.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Volver al Detalle
+    </a>
+</div>
+
+<form method="post" action="{{ url_for('informe_auditoria', control_id=control.id) }}" class="vstack gap-4">
+    
+    <!-- Sección estática heredada -->
+    <div class="card content-card border-0 shadow-sm border-start border-info border-4">
+        <div class="card-body">
+            <h5 class="card-title fw-bold mb-4 text-secondary"><i class="bi bi-info-circle me-2"></i>Información Base (Heredada del Plan)</h5>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <p class="mb-1 text-muted small mt-2">Área Auditada</p>
+                    <p class="fw-bold">{{ control.planta_nombre }} - {{ control.sector_nombre }}</p>
+                </div>
+                <!-- Si se agregó a la consulta el nombre del responsable, lo mostramos aquí, de lo contrario usamos una advertencia genérica -->
+                <div class="col-md-4">
+                    <p class="mb-1 text-muted small mt-2">Sistema de Gestión</p>
+                    <p class="fw-bold">{{ control.sistema_gestion_auditoria or '-' }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-1 text-muted small mt-2">Objetivo</p>
+                    <p class="fw-bold">{{ control.objetivo_auditoria or '-' }}</p>
+                </div>
+                <div class="col-md-12">
+                    <p class="mb-1 text-muted small mt-2">Criterios de Auditoría</p>
+                    <p class="fw-bold mb-0">{{ control.criterios_auditoria or '-' }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-1 text-muted small border-top pt-3">Auditor Líder</p>
+                    <p class="fw-bold">{{ control.auditor_jefe_nombre or '-' }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-1 text-muted small border-top pt-3">Auditor Acompañante</p>
+                    <p class="fw-bold">{{ control.auditor_acompanante_nombre or '-' }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-1 text-muted small border-top pt-3">Auditor en Formación</p>
+                    <p class="fw-bold">{{ control.auditor_formacion_nombre or '-' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="card content-card border-0 shadow-sm border-start border-success border-4">
+        <div class="card-body">
+            <h5 class="card-title fw-bold mb-4 text-success"><i class="bi bi-star me-2"></i>1. Resultados de la Auditoría</h5>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">FORTALEZA/S</label>
+                <textarea name="fortalezas_auditoria" class="form-control" rows="5" placeholder="Predisposición del personal auditado, conocimiento profundo de las normas, etc...">{{ control.fortalezas_auditoria or '' }}</textarea>
+                <div class="form-text"><i class="bi bi-info-circle"></i> Describe detalladamente los puntos fuertes o el buen desempeño del área.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hallazgos Dinámicos -->
+    <div class="card content-card border-0 shadow-sm border-start border-warning border-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="card-title fw-bold text-warning mb-0"><i class="bi bi-search me-2"></i>2. Registro de Hallazgos</h5>
+                <button type="button" class="btn btn-sm btn-outline-warning fw-bold text-dark" onclick="agregarHallazgo()"><i class="bi bi-plus-lg me-1"></i>Añadir Fila</button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead class="bg-light text-center">
+                        <tr>
+                            <th style="width: 25%">Requisito (Norma/Capítulo)</th>
+                            <th style="width: 25%">Tipo de Hallazgo</th>
+                            <th style="width: 45%">Desvío + Evidencia Objetiva</th>
+                            <th style="width: 5%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-hallazgos">
+                        {% if hallazgos %}
+                            {% for hallazgo in hallazgos %}
+                            <tr class="hallazgo-row">
+                                <td>
+                                    <input type="hidden" name="hallazgo_id[]" value="{{ hallazgo.id }}">
+                                    <input type="text" name="hallazgo_requisito[]" class="form-control" value="{{ hallazgo.requisito }}" required>
+                                </td>
+                                <td>
+                                    <select name="hallazgo_tipo[]" class="form-select" required>
+                                        <option value="">Seleccione...</option>
+                                        <option value="Conformidad" {% if hallazgo.tipo_hallazgo == 'Conformidad' %}selected{% endif %}>Conformidad</option>
+                                        <option value="Observación" {% if hallazgo.tipo_hallazgo == 'Observación' %}selected{% endif %}>Observación (OBS)</option>
+                                        <option value="Oportunidad de Mejora" {% if hallazgo.tipo_hallazgo == 'Oportunidad de Mejora' %}selected{% endif %}>Oportunidad de Mejora (OM)</option>
+                                        <option value="No Conformidad Menor" {% if hallazgo.tipo_hallazgo == 'No Conformidad Menor' %}selected{% endif %}>No Conformidad Menor (NCm)</option>
+                                        <option value="No Conformidad Mayor" {% if hallazgo.tipo_hallazgo == 'No Conformidad Mayor' %}selected{% endif %}>No Conformidad Mayor (NCM)</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <textarea name="hallazgo_descripcion[]" class="form-control" rows="2" required>{{ hallazgo.descripcion }}</textarea>
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarHallazgo(this)"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <!-- Fila vacía inicial -->
+                            <tr class="hallazgo-row">
+                                <td>
+                                    <input type="hidden" name="hallazgo_id[]" value="">
+                                    <input type="text" name="hallazgo_requisito[]" class="form-control" placeholder="Ej: 2.12.2" required>
+                                </td>
+                                <td>
+                                    <select name="hallazgo_tipo[]" class="form-select" required>
+                                        <option value="">Seleccione...</option>
+                                        <option value="Conformidad">Conformidad</option>
+                                        <option value="Observación">Observación (OBS)</option>
+                                        <option value="Oportunidad de Mejora">Oportunidad de Mejora (OM)</option>
+                                        <option value="No Conformidad Menor">No Conformidad Menor (NCm)</option>
+                                        <option value="No Conformidad Mayor">No Conformidad Mayor (NCM)</option>
+                                    </select>
+                                </td>
+                                <td><textarea name="hallazgo_descripcion[]" class="form-control" rows="2" placeholder="Desvío y evidencia encontrada..." required></textarea></td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarHallazgo(this)"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="alert alert-light border shadow-sm mt-3 d-flex align-items-center">
+                <i class="bi bi-lightbulb-fill text-warning fs-4 me-3"></i>
+                <div>
+                    <strong>Recordatorio:</strong> Las <span class="text-danger fw-bold">No Conformidades</span> (Mayores o Menores) requieren acciones correctivas inmediatas que se deberán planificar luego de confirmarse este informe.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conclusiones -->
+    <div class="card content-card border-0 shadow-sm border-start border-primary border-4">
+        <div class="card-body">
+            <h5 class="card-title fw-bold mb-4 text-primary"><i class="bi bi-chat-square-text me-2"></i>3. Conclusiones Generales</h5>
+            <div class="mb-3">
+                <textarea name="conclusiones_auditoria" class="form-control" rows="4" placeholder="Resumen final, conformidad general del sistema y palabras de cierre...">{{ control.conclusiones_auditoria or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="d-flex justify-content-end gap-3 mb-5">
+        <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>GUARDAR INFORME</button>
+    </div>
+
+</form>
+
+<script>
+function agregarHallazgo() {
+    const tbody = document.getElementById('tabla-hallazgos');
+    const row = document.createElement('tr');
+    row.className = 'hallazgo-row';
+    row.innerHTML = `
+        <td>
+            <input type="hidden" name="hallazgo_id[]" value="">
+            <input type="text" name="hallazgo_requisito[]" class="form-control" placeholder="Ej: 4.6.5" required>
+        </td>
+        <td>
+            <select name="hallazgo_tipo[]" class="form-select" required>
+                <option value="">Seleccione...</option>
+                <option value="Conformidad">Conformidad</option>
+                <option value="Observación">Observación (OBS)</option>
+                <option value="Oportunidad de Mejora">Oportunidad de Mejora (OM)</option>
+                <option value="No Conformidad Menor">No Conformidad Menor (NCm)</option>
+                <option value="No Conformidad Mayor">No Conformidad Mayor (NCM)</option>
+            </select>
+        </td>
+        <td><textarea name="hallazgo_descripcion[]" class="form-control" rows="2" placeholder="Desvío y evidencia encontrada..." required></textarea></td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarHallazgo(this)"><i class="bi bi-trash"></i></button>
+        </td>
+    `;
+    tbody.appendChild(row);
+}
+
+function eliminarHallazgo(btn) {
+    const tbody = document.getElementById('tabla-hallazgos');
+    if (tbody.querySelectorAll('.hallazgo-row').length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert("El informe debe contener al menos una fila. Puedes limpiar los campos si está vacía.");
+    }
+}
+</script>
+
+
+{% endblock %}
+

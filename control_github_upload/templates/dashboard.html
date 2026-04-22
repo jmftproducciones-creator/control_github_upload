@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Dashboard general</h2>
+        <p class="text-muted mb-0">Indicadores consolidados por planta</p>
+    </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4 col-xl-2">
+        <div class="card stat-card">
+            <div class="card-body">
+                <p class="stat-label">Docs correctos</p>
+                <h3>{{ stats.documentos_correctos }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-xl-2">
+        <div class="card stat-card">
+            <div class="card-body">
+                <p class="stat-label">Docs incorrectos</p>
+                <h3>{{ stats.documentos_incorrectos }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-xl-2">
+        <div class="card stat-card">
+            <div class="card-body">
+                <p class="stat-label">Personas relevadas</p>
+                <h3>{{ stats.personas_total }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-xl-2">
+        <div class="card stat-card">
+            <div class="card-body">
+                <p class="stat-label">Req. capacitación</p>
+                <h3>{{ stats.personas_requieren }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-xl-2">
+        <div class="card stat-card">
+            <div class="card-body">
+                <p class="stat-label">Prod. químicos</p>
+                <h3>{{ stats.quimicos_total }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 col-xl-2">
+        <div class="card stat-card">
+            <div class="card-body">
+                <p class="stat-label">Químicos incorrectos</p>
+                <h3>{{ stats.quimicos_incorrectos }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Nueva sección de tendencias -->
+    <div class="col-12">
+        <div class="card content-card">
+            <div class="card-body">
+                <h5 class="mb-2">Evolución Mensual (Tendencia)</h5>
+                <p class="text-muted small mb-3">Resumen de los últimos 6 meses detallando cantidad de controles y
+                    cumplimiento documental.</p>
+                <div class="chart-box chart-box-lg">
+                    <canvas id="chartTendencias"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card content-card">
+            <div class="card-body">
+                <h5 class="mb-2">Documentos por planta</h5>
+                <p class="text-muted small mb-3">
+                    Estado de documentos por planta según criterio actual del control.
+                </p>
+                <div class="chart-box chart-box-lg">
+                    <canvas id="chartDocumentos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card content-card">
+            <div class="card-body">
+                <h5 class="mb-2">Personal por planta</h5>
+                <p class="text-muted small mb-3">
+                    Personas relevadas y personas que requieren capacitación.
+                </p>
+                <div class="chart-box">
+                    <canvas id="chartPersonal"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card content-card">
+            <div class="card-body">
+                <h5 class="mb-2">Productos químicos por planta</h5>
+                <p class="text-muted small mb-3">
+                    Cantidad total y cantidad con incumplimiento.
+                </p>
+                <div class="chart-box">
+                    <canvas id="chartQuimicos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card content-card">
+            <div class="card-body">
+                <h5 class="mb-3">Últimos controles</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Sector</th>
+                                <th>Docs</th>
+                                <th>Incorrectos</th>
+                                <th>Personas</th>
+                                <th>Req. capacitación</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in ultimos_controles %}
+                            <tr>
+                                <td>{{ item.id }}</td>
+                                <td>{{ item.fecha_control }}</td>
+                                <td>
+                                    {% if item.tipo_control == 'A' %}
+                                        <span class="badge bg-primary">Auditoría</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Control Documental</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.sector }}</td>
+                                <td>{{ item.total_documentos_controlados }}</td>
+                                <td>{{ item.total_documentos_incorrectos }}</td>
+                                <td>{{ item.total_personas_entrevistadas }}</td>
+                                <td>{{ item.total_requieren_capacitacion }}</td>
+                                <td>
+                                    <a href="{{ url_for('detalle_control', control_id=item.id) }}"
+                                        class="btn btn-sm btn-outline-primary">
+                                        Ver
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center text-muted">
+                                    No hay controles cargados.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="data-documentos" type="application/json">{{ documentos_por_planta|tojson }}</script>
+<script id="data-personal" type="application/json">{{ personal_por_planta|tojson }}</script>
+<script id="data-quimicos" type="application/json">{{ quimicos_por_planta|tojson }}</script>
+<script id="data-tendencias" type="application/json">{{ tendencias|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const documentosData = JSON.parse(document.getElementById('data-documentos').textContent || '[]');
+    const personalData = JSON.parse(document.getElementById('data-personal').textContent || '[]');
+    const quimicosData = JSON.parse(document.getElementById('data-quimicos').textContent || '[]');
+    const tendenciasData = JSON.parse(document.getElementById('data-tendencias').textContent || '[]');
+
+    // ===============================
+    // TENDENCIAS
+    // ===============================
+    const ctxTendencias = document.getElementById('chartTendencias');
+    if (ctxTendencias) {
+        new Chart(ctxTendencias, {
+            type: 'line',
+            data: {
+                labels: tendenciasData.map(i => i.mes),
+                datasets: [
+                    {
+                        label: 'Controles realizados',
+                        data: tendenciasData.map(i => i.total_controles),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Documentos OK (%)',
+                        data: tendenciasData.map(i => {
+                            if (!i.docs_total) return 0;
+                            return Math.round((i.docs_ok / i.docs_total) * 100);
+                        }),
+                        borderColor: '#10b981',
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Cantidad de controles' }
+                    },
+                    y1: {
+                        position: 'right',
+                        beginAtZero: true,
+                        max: 100,
+                        title: { display: true, text: 'Cumplimiento %' },
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // ===============================
+    // DOCUMENTOS
+    // ===============================
+    const ctxDocumentos = document.getElementById('chartDocumentos');
+    if (ctxDocumentos) {
+        new Chart(ctxDocumentos, {
+            type: 'bar',
+            data: {
+                labels: documentosData.map(i => i.sector),
+                datasets: [
+                    { label: 'Correctos', data: documentosData.map(i => Number(i.correcto ?? 0)), backgroundColor: '#3b82f6' },
+                    { label: 'Documento obsoleto', data: documentosData.map(i => Number(i.documento_obsoleto ?? 0)), backgroundColor: '#f59e0b' },
+                    { label: 'Sin copia controlada', data: documentosData.map(i => Number(i.sin_copia_controlada ?? 0)), backgroundColor: '#eab308' },
+                    { label: 'Documento no controlado', data: documentosData.map(i => Number(i.documento_no_controlado ?? 0)), backgroundColor: '#14b8a6' },
+                    { label: 'Otro', data: documentosData.map(i => Number(i.otro ?? 0)), backgroundColor: '#8b5cf6' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }
+
+    // ===============================
+    // PERSONAL
+    // ===============================
+    const ctxPersonal = document.getElementById('chartPersonal');
+    if (ctxPersonal) {
+        new Chart(ctxPersonal, {
+            type: 'bar',
+            data: {
+                labels: personalData.map(i => i.sector),
+                datasets: [
+                    {
+                        label: 'Personas relevadas',
+                        data: personalData.map(i => Number(i.personas_total ?? 0)),
+                        backgroundColor: '#631009'
+                    },
+                    {
+                        label: 'Requieren capacitación',
+                        data: personalData.map(i => Number(i.personas_requieren ?? 0)),
+                        backgroundColor: '#B72218'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+
+    // ===============================
+    // QUIMICOS
+    // ===============================
+    const ctxQuimicos = document.getElementById('chartQuimicos');
+    if (ctxQuimicos) {
+        new Chart(ctxQuimicos, {
+            type: 'bar',
+            data: {
+                labels: quimicosData.map(i => i.sector),
+                datasets: [
+                    {
+                        label: 'Total productos',
+                        data: quimicosData.map(i => Number(i.quimicos_total ?? 0)),
+                        backgroundColor: '#323232'
+                    },
+                    {
+                        label: 'Con incumplimiento',
+                        data: quimicosData.map(i => Number(i.quimicos_incorrectos ?? 0)),
+                        backgroundColor: '#B72218'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Auditorias y CAPA{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+    <div>
+        <h2 class="mb-1 text-primary"><i class="bi bi-diagram-3-fill me-2"></i>Dashboard de Auditorias y CAPA</h2>
+        <p class="text-muted mb-0">Comparativas por sector, tendencias y tiempos de ciclo del sistema de auditorias.</p>
+    </div>
+
+    <form method="get" action="{{ url_for('dashboard_auditorias') }}" class="dashboard-filters">
+        {% if g.user.rol != 'plant_manager' %}
+        <select name="planta_id" class="form-select form-select-sm">
+            <option value="">Todas las plantas</option>
+            {% for planta in plantas %}
+            <option value="{{ planta.id }}" {% if planta_id == planta.id %}selected{% endif %}>{{ planta.nombre }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+
+        <select name="sector_id" class="form-select form-select-sm">
+            <option value="">Todos los sectores</option>
+            {% for s in sectores %}
+            <option value="{{ s.id }}" {% if s_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="tipo_hallazgo" class="form-select form-select-sm">
+            <option value="">Todos los hallazgos</option>
+            {% for item in hallazgos_disponibles %}
+            <option value="{{ item.tipo_hallazgo }}" {% if tipo_hallazgo == item.tipo_hallazgo %}selected{% endif %}>{{ item.tipo_hallazgo }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="meses" class="form-select form-select-sm">
+            <option value="3" {% if meses == 3 %}selected{% endif %}>3 meses</option>
+            <option value="6" {% if meses == 6 %}selected{% endif %}>6 meses</option>
+            <option value="12" {% if meses == 12 %}selected{% endif %}>12 meses</option>
+            <option value="24" {% if meses == 24 %}selected{% endif %}>24 meses</option>
+        </select>
+
+        <button type="submit" class="btn btn-primary btn-sm fw-bold">Aplicar</button>
+    </form>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card metric-card h-100">
+            <div class="card-body">
+                <div class="metric-label">Auditorías</div>
+                <div class="metric-value">{{ stats_auditoria.auditorias_total or 0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card h-100">
+            <div class="card-body">
+                <div class="metric-label">Hallazgos</div>
+                <div class="metric-value">{{ stats_auditoria.hallazgos_total or 0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card h-100">
+            <div class="card-body">
+                <div class="metric-label">CAPA abiertas</div>
+                <div class="metric-value text-warning">{{ stats_auditoria.acciones_abiertas or 0 }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card h-100">
+            <div class="card-body">
+                <div class="metric-label">CAPA cerradas</div>
+                <div class="metric-value text-success">{{ stats_auditoria.acciones_cerradas or 0 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-8">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2 fw-bold">Hallazgos por sector</h5>
+                <p class="text-muted small mb-3">Comparación de tipologías en un mismo gráfico para todos los sectores visibles.</p>
+                <div class="chart-box"><canvas id="chartHallazgosSector"></canvas></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2 fw-bold">Estado CAPA por sector</h5>
+                <p class="text-muted small mb-3">Cerradas, en revisión, bloqueadas por prórroga y vencidas.</p>
+                <div class="chart-box"><canvas id="chartWorkflowSector"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-6">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2 fw-bold">Tipos de acción correctiva por sector</h5>
+                <p class="text-muted small mb-3">Comparación entre sectores de los planes elegidos para cierre de causa raíz.</p>
+                <div class="chart-box"><canvas id="chartTiposAccionSector"></canvas></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2 fw-bold">Tendencia mensual</h5>
+                <p class="text-muted small mb-3">Hallazgos, CAPA creadas y CAPA cerradas en el período filtrado.</p>
+                <div class="chart-box"><canvas id="chartTendenciasMensuales"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-3 fw-bold">Tiempos de ciclo</h5>
+                <div class="cycle-grid">
+                    <div class="cycle-item">
+                        <span>Auditoría a plan</span>
+                        <strong>{{ tiempos_ciclo.dias_a_plan if tiempos_ciclo.dias_a_plan is not none else '-' }} días</strong>
+                    </div>
+                    <div class="cycle-item">
+                        <span>Auditoría a informe</span>
+                        <strong>{{ tiempos_ciclo.dias_a_informe if tiempos_ciclo.dias_a_informe is not none else '-' }} días</strong>
+                    </div>
+                    <div class="cycle-item">
+                        <span>Auditoría a CAPA</span>
+                        <strong>{{ tiempos_ciclo.dias_a_capa if tiempos_ciclo.dias_a_capa is not none else '-' }} días</strong>
+                    </div>
+                    <div class="cycle-item">
+                        <span>CAPA a cierre</span>
+                        <strong>{{ tiempos_ciclo.dias_cierre_capa if tiempos_ciclo.dias_cierre_capa is not none else '-' }} días</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-3 fw-bold">Sectores recurrentes</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle table-hover">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>Sector</th>
+                                <th>No conformidades</th>
+                                <th>Prórrogas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in sectores_recurrentes %}
+                            <tr>
+                                <td class="fw-semibold">{{ item.sector }}</td>
+                                <td>{{ item.no_conformidades }}</td>
+                                <td>{{ item.prorrogas }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">No hay recurrencias relevantes con los filtros actuales.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card content-card border-0 shadow-sm border-start border-info border-4">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">Últimas acciones correctivas</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle table-hover">
+                        <thead class="bg-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Hallazgo</th>
+                                <th>Área auditada</th>
+                                <th>Responsable</th>
+                                <th>Auditor líder</th>
+                                <th>Vencimiento</th>
+                                <th>Estado visual</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in ultimas_acciones %}
+                            <tr>
+                                <td class="fw-bold">CAPA-#{{ item.id }}</td>
+                                <td><span class="badge bg-dark">{{ item.tipo_hallazgo }}</span></td>
+                                <td>{{ item.area_auditada }}</td>
+                                <td>{{ item.responsable_area }}</td>
+                                <td>{{ item.auditor_lider }}</td>
+                                <td>{{ item.fecha_cierre_programado or 'S/D' }}</td>
+                                <td>
+                                    <span class="status-pill status-{{ item.workflow_estado_visual|lower|replace(' ', '-')|replace('ó', 'o')|replace('í', 'i') }}">
+                                        {{ item.workflow_estado_visual }}
+                                    </span>
+                                </td>
+                                <td><a href="{{ url_for('accion_correctiva', ac_id=item.id) }}" class="btn btn-sm btn-outline-primary fw-bold">Ver</a></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">No hay acciones correctivas para mostrar.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="data-hallazgos-sector" type="application/json">{{ hallazgos_por_sector|tojson }}</script>
+<script id="data-workflow-sector" type="application/json">{{ workflow_sector|tojson }}</script>
+<script id="data-tipos-accion-sector" type="application/json">{{ acciones_tipos_sector|tojson }}</script>
+<script id="data-tendencias-mensuales" type="application/json">{{ tendencias_mensuales|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const hallazgosSector = JSON.parse(document.getElementById('data-hallazgos-sector').textContent || '[]');
+const workflowSector = JSON.parse(document.getElementById('data-workflow-sector').textContent || '[]');
+const tiposAccionSector = JSON.parse(document.getElementById('data-tipos-accion-sector').textContent || '[]');
+const tendenciasMensuales = JSON.parse(document.getElementById('data-tendencias-mensuales').textContent || '[]');
+
+function buildGroupedDatasets(rows, groupKey, seriesKey, valueKey, palette) {
+    const labels = [...new Set(rows.map(item => item[groupKey] || 'Sin sector'))];
+    const series = [...new Set(rows.map(item => item[seriesKey] || 'Sin clasificar'))];
+    return {
+        labels,
+        datasets: series.map((serie, index) => ({
+            label: serie,
+            data: labels.map(label => {
+                const found = rows.find(item => (item[groupKey] || 'Sin sector') === label && (item[seriesKey] || 'Sin clasificar') === serie);
+                return found ? Number(found[valueKey] || 0) : 0;
+            }),
+            backgroundColor: palette[index % palette.length],
+            borderRadius: 8
+        }))
+    };
+}
+
+const hallazgoPalette = ['#2563eb', '#f59e0b', '#eab308', '#14b8a6', '#8b5cf6', '#ef4444', '#22c55e'];
+const workflowPalette = ['#16a34a', '#0284c7', '#f59e0b', '#dc2626', '#7c3aed'];
+const tiposPalette = ['#ef4444', '#3b82f6', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#eab308'];
+
+const hallazgosGrouped = buildGroupedDatasets(hallazgosSector, 'sector', 'tipo_hallazgo', 'cantidad', hallazgoPalette);
+const tiposAccionGrouped = buildGroupedDatasets(tiposAccionSector, 'sector', 'plan_tipo_accion', 'cantidad', tiposPalette);
+
+if (document.getElementById('chartHallazgosSector') && hallazgosGrouped.labels.length) {
+    new Chart(document.getElementById('chartHallazgosSector'), {
+        type: 'bar',
+        data: hallazgosGrouped,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+}
+
+if (document.getElementById('chartWorkflowSector') && workflowSector.length) {
+    new Chart(document.getElementById('chartWorkflowSector'), {
+        type: 'bar',
+        data: {
+            labels: workflowSector.map(item => item.sector),
+            datasets: [
+                { label: 'Cerradas', data: workflowSector.map(item => item.cerradas), backgroundColor: workflowPalette[0] },
+                { label: 'Revisión sector', data: workflowSector.map(item => item.en_revision_sector), backgroundColor: workflowPalette[1] },
+                { label: 'Revisión auditor', data: workflowSector.map(item => item.en_revision_auditor), backgroundColor: workflowPalette[2] },
+                { label: 'Bloqueadas prórroga', data: workflowSector.map(item => item.bloqueadas_prorroga), backgroundColor: workflowPalette[3] },
+                { label: 'Vencidas', data: workflowSector.map(item => item.vencidas), backgroundColor: workflowPalette[4] }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+}
+
+if (document.getElementById('chartTiposAccionSector') && tiposAccionGrouped.labels.length) {
+    new Chart(document.getElementById('chartTiposAccionSector'), {
+        type: 'bar',
+        data: tiposAccionGrouped,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+}
+
+if (document.getElementById('chartTendenciasMensuales') && tendenciasMensuales.length) {
+    new Chart(document.getElementById('chartTendenciasMensuales'), {
+        type: 'line',
+        data: {
+            labels: tendenciasMensuales.map(item => item.mes),
+            datasets: [
+                { label: 'Hallazgos', data: tendenciasMensuales.map(item => item.hallazgos_total), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.12)', tension: 0.25, fill: true },
+                { label: 'CAPA creadas', data: tendenciasMensuales.map(item => item.capas_total), borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.12)', tension: 0.25, fill: true },
+                { label: 'CAPA cerradas', data: tendenciasMensuales.map(item => item.capas_cerradas), borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.12)', tension: 0.25, fill: true }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+}
+</script>
+
+
+{% endblock %}
+

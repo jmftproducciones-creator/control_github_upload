@@ -1,0 +1,488 @@
+{% extends 'base.html' %}
+{% block title %}Acción Correctiva (CAPA){% endblock %}
+
+{% block content %}
+{% set is_auditor = is_capa_auditor %}
+{% set is_responsable = is_capa_responsable %}
+{% set editor_paso_auditor = ac.auditor_lider or 'Auditor jefe no asignado' %}
+{% set editor_paso_responsable = ac.responsable_area or 'Responsable de sector no asignado' %}
+{% set has_prorroga_request = ac.prorroga_requiere and (ac.prorroga_fecha or ac.prorroga_motivo) %}
+{% set evidencia_url = url_for('static', filename='uploads/documentos/' + ac.evidencia_path) if ac.evidencia_path else None %}
+{% set evidencia_lower = ac.evidencia_path|lower if ac.evidencia_path else '' %}
+{% set evidencia_es_imagen = evidencia_lower.endswith('.jpg') or evidencia_lower.endswith('.jpeg') or evidencia_lower.endswith('.png') or evidencia_lower.endswith('.gif') or evidencia_lower.endswith('.webp') %}
+{% set evidencia_es_pdf = evidencia_lower.endswith('.pdf') %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1 text-primary"><i class="bi bi-diagram-3-fill me-2"></i>Gestión de Acción Correctiva</h2>
+        <p class="text-muted mb-0">Flujo automatizado vinculando hallazgos, análisis causal y cierre.</p>
+    </div>
+    {% if control_id %}
+    <a href="{{ url_for('detalle_control', control_id=control_id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Volver a la Auditoría
+    </a>
+    {% else %}
+    <a href="{{ url_for('historial') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Volver al Historial
+    </a>
+    {% endif %}
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="capa-step-nav">
+            <a href="#paso-1" class="capa-step-link {% if ac.estado_flujo in ['PASO_1', 'PASO_2', 'PASO_3', 'PASO_4', 'PASO_5', 'CERRADO'] %}is-active{% endif %}">
+                <span class="capa-step-pill">Paso 1</span>
+                <small>Clasificación</small>
+            </a>
+            <span class="capa-step-line {% if ac.estado_flujo in ['PASO_2', 'PASO_3', 'PASO_4', 'PASO_5', 'CERRADO'] %}is-active{% endif %}"></span>
+            <a href="#paso-2" class="capa-step-link {% if ac.estado_flujo in ['PASO_2', 'PASO_3', 'PASO_4', 'PASO_5', 'CERRADO'] %}is-active{% endif %}">
+                <span class="capa-step-pill">Paso 2</span>
+                <small>Análisis Causal</small>
+            </a>
+            <span class="capa-step-line {% if ac.estado_flujo in ['PASO_3', 'PASO_4', 'PASO_5', 'CERRADO'] %}is-active{% endif %}"></span>
+            <a href="#paso-3" class="capa-step-link {% if ac.estado_flujo in ['PASO_3', 'PASO_4', 'PASO_5', 'CERRADO'] %}is-active{% endif %}">
+                <span class="capa-step-pill">Paso 3</span>
+                <small>Aprobación</small>
+            </a>
+            <span class="capa-step-line {% if ac.estado_flujo in ['PASO_4', 'PASO_5', 'CERRADO'] %}is-active{% endif %}"></span>
+            <a href="#paso-4" class="capa-step-link {% if ac.estado_flujo in ['PASO_4', 'PASO_5', 'CERRADO'] %}is-active{% endif %}">
+                <span class="capa-step-pill">Paso 4</span>
+                <small>Ejecución</small>
+            </a>
+            <span class="capa-step-line {% if ac.estado_flujo in ['PASO_5', 'CERRADO'] %}is-active{% endif %}"></span>
+            <a href="#paso-5" class="capa-step-link {% if ac.estado_flujo in ['PASO_5', 'CERRADO'] %}is-active{% endif %} {% if ac.estado_flujo == 'CERRADO' %}is-closed{% endif %}">
+                <span class="capa-step-pill">Paso 5</span>
+                <small>Cierre</small>
+            </a>
+        </div>
+    </div>
+</div>
+
+<form method="post" action="{{ url_for('accion_correctiva', ac_id=ac.id) }}" enctype="multipart/form-data" class="vstack gap-4">
+    <input type="hidden" name="paso_guardado" value="{{ ac.estado_flujo }}">
+
+    {% set lock_1 = ac.estado_flujo != 'PASO_1' or not is_auditor %}
+    <section id="paso-1" class="card content-card border-0 shadow-sm border-start border-primary border-4 {% if lock_1 %}bg-light opacity-75{% endif %}">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3 d-flex justify-content-between">
+                <span><i class="bi bi-1-circle me-2"></i>Clasificación y Asignación de Roles</span>
+                {% if ac.estado_flujo == 'PASO_1' %}<span class="badge bg-primary">EN CURSO</span>{% endif %}
+            </h5>
+            <div class="step-owner-banner step-owner-auditor mb-3">
+                <strong>Puede editar este paso:</strong> {{ editor_paso_auditor }}
+                {% if lock_1 %}
+                <span class="d-block small mt-1">Tu usuario actual es {{ full_name }}. Este paso es solo del auditor jefe.</span>
+                {% endif %}
+            </div>
+
+            <div class="row g-3 mb-4 text-muted small">
+                <div class="col-md-3"><strong>Tipo Auditoría:</strong><br>{{ ac.tipo_auditoria }}</div>
+                <div class="col-md-3"><strong>Fecha Auditoría:</strong><br>{{ ac.fecha_auditoria }}</div>
+                <div class="col-md-3"><strong>Requisito Normativo:</strong><br>{{ ac.requisito_normativo }}</div>
+                <div class="col-md-3"><strong>Tipo Hallazgo:</strong><br><span class="badge bg-dark">{{ ac.tipo_hallazgo }}</span></div>
+                <div class="col-md-4"><strong>Auditor Jefe:</strong><br>{{ ac.auditor_lider }}</div>
+                <div class="col-md-4"><strong>Área Auditada:</strong><br>{{ ac.area_auditada }}</div>
+                <div class="col-12 mt-3">
+                    <strong>Evidencia del Hallazgo:</strong>
+                    <div class="p-2 border rounded bg-white mt-1">{{ ac.evidencia_descripcion }}</div>
+                </div>
+            </div>
+
+            <div class="row g-3 border-top pt-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small">Responsable del Área</label>
+                    <input type="text" name="responsable_area" class="form-control" value="{{ ac.responsable_area or '' }}" readonly>
+                    <small class="text-muted">Campo heredado del plan de auditoría.</small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small">Proceso Auditado Específico</label>
+                    <input type="text" name="proceso_auditado" class="form-control" value="{{ ac.proceso_auditado or '' }}" {% if lock_1 %}readonly{% endif %}>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small">Responsable del Proceso (Opcional)</label>
+                    <input type="text" name="responsable_proceso" class="form-control" value="{{ ac.responsable_proceso or '' }}" {% if lock_1 %}readonly{% endif %}>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small">Fecha Límite de Cierre</label>
+                    <input type="date" name="fecha_cierre_programado" class="form-control" value="{{ ac.fecha_cierre_programado or '' }}" {% if lock_1 %}readonly{% endif %}>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small">Resp. Verificación (Calidad/SCGIA)</label>
+                    <input type="text" name="responsable_verificacion" class="form-control" value="{{ ac.responsable_verificacion or '' }}" readonly>
+                    <small class="text-muted">Campo heredado del plan de auditoría.</small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small">Resp. Ejecución Final Estimado</label>
+                    <input type="text" name="responsable_ejecucion" class="form-control" value="{{ ac.responsable_ejecucion or '' }}" {% if lock_1 %}readonly{% endif %}>
+                </div>
+            </div>
+
+            {% if ac.estado_flujo == 'PASO_1' and is_auditor %}
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-primary fw-bold px-4">Guardar y Avisar al Área <i class="bi bi-arrow-right"></i></button>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    {% set lock_2 = ac.estado_flujo != 'PASO_2' or not is_responsable %}
+    {% if ac.estado_flujo in ['PASO_2', 'PASO_3', 'PASO_4', 'PASO_5', 'CERRADO'] %}
+    <section id="paso-2" class="card content-card border-0 shadow-sm border-start border-warning border-4 {% if lock_2 %}bg-light opacity-75{% endif %}">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3 d-flex justify-content-between">
+                <span><i class="bi bi-2-circle me-2"></i>Análisis: Ishikawa y Plan</span>
+                {% if ac.estado_flujo == 'PASO_2' %}<span class="badge bg-warning text-dark">EN CURSO</span>{% endif %}
+            </h5>
+            <div class="step-owner-banner step-owner-responsable mb-3">
+                <strong>Puede editar este paso:</strong> {{ editor_paso_responsable }}
+                {% if lock_2 %}
+                <span class="d-block small mt-1">Tu usuario actual es {{ full_name }}. Este paso es solo del responsable del sector auditado.</span>
+                {% endif %}
+            </div>
+
+            {% if ac.estado_flujo == 'PASO_2' and ac.justificacion_resolucion %}
+            <div class="alert alert-danger mb-4 shadow-sm border-danger border-2">
+                <strong><i class="bi bi-exclamation-triangle-fill me-2"></i>Devuelto desde aprobación:</strong>
+                <p class="mb-0 mt-1">{{ ac.justificacion_resolucion }}</p>
+                <small class="text-danger mt-1">Corregí el análisis y volvé a remitirlo.</small>
+            </div>
+            {% endif %}
+
+            <h6 class="fw-bold border-bottom pb-2">A. Acción Inmediata (Contención)</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <label class="form-label small">Evaluación de las consecuencias</label>
+                    <textarea name="accion_inmediata_consecuencias" class="form-control" rows="2" {% if lock_2 %}readonly{% endif %}>{{ ac.accion_inmediata_consecuencias or '' }}</textarea>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">¿Requiere acción inmediata?</label>
+                    <select name="accion_inmediata_requiere" class="form-select" {% if lock_2 %}disabled{% endif %}>
+                        <option value="1" {% if ac.accion_inmediata_requiere %}selected{% endif %}>Sí</option>
+                        <option value="0" {% if not ac.accion_inmediata_requiere %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+                <div class="col-md-9">
+                    <label class="form-label small">Descripción de acción inmediata (si aplica)</label>
+                    <input type="text" name="accion_inmediata_desc" class="form-control" value="{{ ac.accion_inmediata_desc or '' }}" {% if lock_2 %}readonly{% endif %}>
+                </div>
+            </div>
+
+            <h6 class="fw-bold border-bottom pb-2 text-danger"><i class="bi bi-diagram-2 me-2"></i>B. Diagrama Ishikawa</h6>
+            <p class="text-muted small mb-3">Desarrollá las causas potenciales con el mayor detalle posible en cada rama.</p>
+            <div class="row g-2 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label small">Método</label>
+                    <textarea name="ishikawa_metodo" class="form-control capa-analysis-field" rows="4" {% if lock_2 %}readonly{% endif %}>{{ ac.ishikawa_metodo or '' }}</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Mano de Obra</label>
+                    <textarea name="ishikawa_mano_obra" class="form-control capa-analysis-field" rows="4" {% if lock_2 %}readonly{% endif %}>{{ ac.ishikawa_mano_obra or '' }}</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Máquina</label>
+                    <textarea name="ishikawa_maquina" class="form-control capa-analysis-field" rows="4" {% if lock_2 %}readonly{% endif %}>{{ ac.ishikawa_maquina or '' }}</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Material / Materia Prima</label>
+                    <textarea name="ishikawa_material" class="form-control capa-analysis-field" rows="4" {% if lock_2 %}readonly{% endif %}>{{ ac.ishikawa_material or '' }}</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Medición</label>
+                    <textarea name="ishikawa_medicion" class="form-control capa-analysis-field" rows="4" {% if lock_2 %}readonly{% endif %}>{{ ac.ishikawa_medicion or '' }}</textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Medioambiente</label>
+                    <textarea name="ishikawa_medioambiente" class="form-control capa-analysis-field" rows="4" {% if lock_2 %}readonly{% endif %}>{{ ac.ishikawa_medioambiente or '' }}</textarea>
+                </div>
+            </div>
+
+            <h6 class="fw-bold border-bottom pb-2 text-danger mt-4"><i class="bi bi-funnel me-2"></i>C. Análisis causal por cada rama</h6>
+            <p class="text-muted small mb-3">Acá conviene justificar cada “por qué” con contexto, evidencia y relación con el hallazgo.</p>
+            <div class="row g-2 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">¿Por qué? Método</label>
+                    <textarea name="porque_1" class="form-control capa-analysis-field" rows="5" placeholder="Desarrollá la causa asociada a método y cómo incidió en el hallazgo..." {% if lock_2 %}readonly{% endif %}>{{ ac.porque_1 or '' }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">¿Por qué? Mano de Obra</label>
+                    <textarea name="porque_2" class="form-control capa-analysis-field" rows="5" placeholder="Desarrollá la causa asociada a mano de obra y cómo incidió en el hallazgo..." {% if lock_2 %}readonly{% endif %}>{{ ac.porque_2 or '' }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">¿Por qué? Máquina</label>
+                    <textarea name="porque_3" class="form-control capa-analysis-field" rows="5" placeholder="Desarrollá la causa asociada a máquina y cómo incidió en el hallazgo..." {% if lock_2 %}readonly{% endif %}>{{ ac.porque_3 or '' }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">¿Por qué? Material / Materia Prima</label>
+                    <textarea name="porque_4" class="form-control capa-analysis-field" rows="5" placeholder="Desarrollá la causa asociada a material y cómo incidió en el hallazgo..." {% if lock_2 %}readonly{% endif %}>{{ ac.porque_4 or '' }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">¿Por qué? Medición</label>
+                    <textarea name="porque_5" class="form-control capa-analysis-field" rows="5" placeholder="Desarrollá la causa asociada a medición y cómo incidió en el hallazgo..." {% if lock_2 %}readonly{% endif %}>{{ ac.porque_5 or '' }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">¿Por qué? Medioambiente</label>
+                    <textarea name="porque_6" class="form-control capa-analysis-field" rows="5" placeholder="Desarrollá la causa asociada a medioambiente y cómo incidió en el hallazgo..." {% if lock_2 %}readonly{% endif %}>{{ ac.porque_6 or '' }}</textarea>
+                </div>
+            </div>
+
+            <h6 class="fw-bold border-bottom pb-2 mt-4">D. Plan de Acciones Correctivas</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small">Tipo de Acción</label>
+                    <div class="multi-check-group">
+                        <label class="multi-check-item"><input type="checkbox" name="plan_tipo_accion[]" value="Formativa" {% if ac.plan_tipo_accion and 'Formativa' in ac.plan_tipo_accion %}checked{% endif %} {% if lock_2 %}disabled{% endif %}> <span>Formativa (Capacitación)</span></label>
+                        <label class="multi-check-item"><input type="checkbox" name="plan_tipo_accion[]" value="Documental" {% if ac.plan_tipo_accion and 'Documental' in ac.plan_tipo_accion %}checked{% endif %} {% if lock_2 %}disabled{% endif %}> <span>Cambio Normativo / Documental</span></label>
+                        <label class="multi-check-item"><input type="checkbox" name="plan_tipo_accion[]" value="Técnica/Ingeniería" {% if ac.plan_tipo_accion and 'Técnica/Ingeniería' in ac.plan_tipo_accion %}checked{% endif %} {% if lock_2 %}disabled{% endif %}> <span>Técnica / Ingeniería</span></label>
+                        <label class="multi-check-item"><input type="checkbox" name="plan_tipo_accion[]" value="Organizativa" {% if ac.plan_tipo_accion and 'Organizativa' in ac.plan_tipo_accion %}checked{% endif %} {% if lock_2 %}disabled{% endif %}> <span>Organizativa</span></label>
+                    </div>
+                    <small class="text-muted">Podés seleccionar más de una opción.</small>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label small">Descripción precisa del plan</label>
+                    <textarea name="plan_descripcion" class="form-control" rows="2" {% if lock_2 %}readonly{% endif %}>{{ ac.plan_descripcion or '' }}</textarea>
+                </div>
+            </div>
+
+            <h6 class="fw-bold border-bottom pb-2 mt-4">E. Prórrogas (Opcional)</h6>
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label small">¿Requiere prórroga?</label>
+                    <select name="prorroga_requiere" class="form-select" {% if lock_2 %}disabled{% endif %}>
+                        <option value="0" {% if not ac.prorroga_requiere %}selected{% endif %}>No</option>
+                        <option value="1" {% if ac.prorroga_requiere %}selected{% endif %}>Sí</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Nueva Fecha</label>
+                    <input type="date" name="prorroga_fecha" class="form-control" value="{{ ac.prorroga_fecha or '' }}" {% if lock_2 %}readonly{% endif %}>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label small">Motivo de Solicitud</label>
+                    <input type="text" name="prorroga_motivo" class="form-control" value="{{ ac.prorroga_motivo or '' }}" {% if lock_2 %}readonly{% endif %}>
+                </div>
+            </div>
+
+            {% if ac.estado_flujo == 'PASO_2' and is_responsable %}
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-warning fw-bold text-dark px-4"><i class="bi bi-save me-1"></i>Remitir Plan para Aprobación</button>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% set lock_3 = ac.estado_flujo != 'PASO_3' or not is_auditor %}
+    {% if ac.estado_flujo in ['PASO_3', 'PASO_4', 'PASO_5', 'CERRADO'] %}
+    <section id="paso-3" class="card content-card border-0 shadow-sm border-start border-info border-4 {% if lock_3 %}bg-light opacity-75{% endif %}">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3 d-flex justify-content-between">
+                <span><i class="bi bi-3-circle me-2"></i>Aprobación (SCGIA / Auditor)</span>
+                {% if ac.estado_flujo == 'PASO_3' %}<span class="badge bg-info text-dark">REVISANDO</span>{% endif %}
+            </h5>
+            <div class="step-owner-banner step-owner-auditor mb-3">
+                <strong>Puede editar este paso:</strong> {{ editor_paso_auditor }}
+                {% if lock_3 %}
+                <span class="d-block small mt-1">Tu usuario actual es {{ full_name }}. Este paso es solo del auditor jefe.</span>
+                {% endif %}
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-12 text-muted mb-2">
+                    El auditor jefe evalúa la calidad del análisis, el plan presentado y, si existe, la solicitud de prórroga.
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Estado del análisis causal</label>
+                    <div class="form-control">{{ 'Aprobado' if ac.aprueba_causas else 'Pendiente' }}</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Estado del plan correctivo</label>
+                    <div class="form-control">{{ 'Aprobado' if ac.aprueba_plan else 'Pendiente' }}</div>
+                </div>
+                {% if ac.prorroga_requiere %}
+                <div class="col-md-12 mt-3">
+                    <label class="form-label text-warning fw-bold"><i class="bi bi-clock-history"></i>Solicitud de prórroga</label>
+                    <div class="small text-muted mb-2">
+                        Fecha solicitada: {{ ac.prorroga_fecha or '-' }}. Motivo: {{ ac.prorroga_motivo or '-' }}
+                    </div>
+                    {% if has_prorroga_request and not lock_3 %}
+                    <div class="multi-check-group border-warning-subtle">
+                        <label class="multi-check-item"><input type="radio" name="prorroga_decision" value="APROBADA" {% if ac.prorroga_avances == 'APROBADA' %}checked{% endif %}> <span>Aprobar prórroga</span></label>
+                        <label class="multi-check-item"><input type="radio" name="prorroga_decision" value="DENEGADA" {% if ac.prorroga_avances == 'DENEGADA' %}checked{% endif %}> <span>Denegar prórroga</span></label>
+                    </div>
+                    {% elif not has_prorroga_request %}
+                    <div class="alert alert-secondary mb-0">
+                        La prórroga fue marcada, pero no tiene fecha ni motivo cargados. Hasta que el responsable no complete esa solicitud, no se puede aprobar ni denegar.
+                    </div>
+                    {% else %}
+                    <div class="form-control border-warning bg-light-subtle">{{ ac.prorroga_avances or 'Pendiente de definición' }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if not lock_3 %}
+                <div class="col-md-12 mt-3 p-3 bg-light border rounded" id="bloque_justificacion">
+                    <label class="form-label fw-bold text-danger">Justificación Resolutiva</label>
+                    <textarea name="justificacion_resolucion" class="form-control" rows="2" placeholder="Describí el motivo de la decisión..."></textarea>
+                </div>
+                {% elif ac.justificacion_resolucion %}
+                <div class="col-md-12 mt-3">
+                    <label class="form-label text-muted">Comentarios registrados:</label>
+                    <p class="mb-0 fst-italic">"{{ ac.justificacion_resolucion }}"</p>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if ac.estado_flujo == 'PASO_3' and is_auditor %}
+            <div class="mt-4 gap-2 d-flex justify-content-end">
+                <button type="submit" name="decision_aprobacion" value="false" class="btn btn-outline-danger fw-bold"><i class="bi bi-x-circle"></i>Denegar y Devolver</button>
+                <button type="submit" name="decision_aprobacion" value="true" class="btn btn-info fw-bold text-dark px-4"><i class="bi bi-check-all"></i>Aprobar para Ejecución</button>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% set lock_4 = ac.estado_flujo != 'PASO_4' or not is_responsable %}
+    {% if ac.estado_flujo in ['PASO_4', 'PASO_5', 'CERRADO'] %}
+    <section id="paso-4" class="card content-card border-0 shadow-sm border-start border-success border-4 {% if lock_4 %}bg-light opacity-75{% endif %}">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3 d-flex justify-content-between">
+                <span><i class="bi bi-4-circle me-2"></i>Ejecución de Acción</span>
+                {% if ac.estado_flujo == 'PASO_4' %}<span class="badge bg-success">ESPERANDO EJECUCIÓN</span>{% endif %}
+            </h5>
+            <div class="step-owner-banner step-owner-responsable mb-3">
+                <strong>Puede editar este paso:</strong> {{ editor_paso_responsable }}
+                {% if lock_4 %}
+                <span class="d-block small mt-1">Tu usuario actual es {{ full_name }}. Este paso es solo del responsable del sector auditado.</span>
+                {% endif %}
+            </div>
+
+            {% if ac.estado_flujo == 'PASO_4' and ac.justificacion_resolucion and is_responsable and 'denegado' in ac.justificacion_resolucion|lower %}
+            <div class="alert alert-danger mb-4">
+                <strong><i class="bi bi-x-circle-fill"></i> El evaluador de SCGIA rechazó la evidencia de cierre:</strong>
+                <p class="mb-0 mt-1">{{ ac.justificacion_resolucion }}</p>
+            </div>
+            {% endif %}
+
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-bold">Verificación y Detalle de Implementación</label>
+                    <textarea name="verificacion_implementacion" class="form-control border-success" rows="3" {% if lock_4 %}readonly{% else %}required{% endif %}>{{ ac.verificacion_implementacion or '' }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Evidencias Objetivas</label>
+                    {% if ac.evidencia_path %}
+                    <div class="mb-3 d-flex flex-wrap align-items-start gap-3">
+                        <a href="{{ url_for('static', filename='uploads/documentos/' + ac.evidencia_path) }}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-arrow-down"></i>Archivo Registrado Actualmente</a>
+                        <div class="flex-grow-1 min-w-0">
+                            {% if evidencia_es_imagen %}
+                            <a href="{{ evidencia_url }}" target="_blank" class="capa-evidence-image-link capa-evidence-image-link-inline">
+                                <img src="{{ evidencia_url }}" alt="Evidencia de ejecucion" class="capa-evidence-image capa-evidence-image-inline">
+                            </a>
+                            {% elif evidencia_es_pdf %}
+                            <div class="capa-evidence-pdf-wrap capa-evidence-pdf-wrap-inline">
+                                <iframe src="{{ evidencia_url }}" title="Vista previa de evidencia PDF" class="capa-evidence-pdf capa-evidence-pdf-inline"></iframe>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-secondary mb-0 py-2">
+                                Vista previa no disponible para este archivo.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if evidencia_fotos %}
+                    <div class="capa-photo-gallery mb-3">
+                        {% for foto in evidencia_fotos %}
+                        {% set foto_url = url_for('static', filename='uploads/documentos/' + foto) %}
+                        <a href="{{ foto_url }}" download class="capa-photo-card" title="Descargar imagen">
+                            <img src="{{ foto_url }}" alt="Foto de evidencia {{ loop.index }}" class="capa-photo-thumb">
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if not lock_4 %}
+                    <input type="file" name="evidencia_path" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+                    <small class="text-muted">La carga de un nuevo archivo reemplazara el anterior.</small>
+                    <div class="mt-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <label class="form-label fw-bold mb-0">Fotos de evidencia</label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="agregarCampoFotoEvidencia()">
+                                <i class="bi bi-plus-lg me-1"></i>Agregar foto
+                            </button>
+                        </div>
+                        <div id="evidencia-fotos-inputs" class="capa-photo-inputs">
+                            <input type="file" name="evidencia_fotos[]" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp">
+                        </div>
+                        <small class="text-muted">Puedes agregar todas las fotos que necesites. Se sumaran a la galeria actual.</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if ac.estado_flujo == 'PASO_4' and is_responsable %}
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-success fw-bold px-4 text-white"><i class="bi bi-send-check"></i>Enviar Evidencia a Verificación</button>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% set lock_5 = ac.estado_flujo != 'PASO_5' or not is_auditor %}
+    {% if ac.estado_flujo in ['PASO_5', 'CERRADO'] %}
+    <section id="paso-5" class="card content-card border-0 shadow-sm border-start border-dark border-4 {% if ac.estado_flujo == 'CERRADO' %}bg-success bg-opacity-10{% endif %}">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3 d-flex justify-content-between">
+                <span><i class="bi bi-5-circle me-2"></i>Verificación del Cierre</span>
+                {% if ac.estado_flujo == 'CERRADO' %}
+                <span class="badge bg-success fw-bold p-2"><i class="bi bi-lock-fill"></i>ACCIÓN CORRECTIVA CERRADA</span>
+                {% else %}
+                <span class="badge bg-dark">RESOLUCIÓN PENDIENTE</span>
+                {% endif %}
+            </h5>
+            <div class="step-owner-banner step-owner-auditor mb-3">
+                <strong>Puede editar este paso:</strong> {{ editor_paso_auditor }}
+                {% if lock_5 and ac.estado_flujo != 'CERRADO' %}
+                <span class="d-block small mt-1">Tu usuario actual es {{ full_name }}. Este paso es solo del auditor jefe.</span>
+                {% endif %}
+            </div>
+
+            {% if ac.estado_flujo == 'PASO_5' and not lock_5 %}
+            <p class="text-muted"><i class="bi bi-shield-check text-primary"></i> El auditor jefe debe confirmar si la evidencia aportada resuelve la causa raíz.</p>
+            <div class="col-md-12 mt-3 p-3 bg-light border rounded">
+                <label class="form-label fw-bold text-dark">Justificación de Verificación</label>
+                <textarea name="justificacion_resolucion" class="form-control" rows="2" placeholder="Confirmo que el problema de base queda resuelto porque..."></textarea>
+            </div>
+            <div class="mt-4 gap-2 d-flex justify-content-end">
+                <button type="submit" name="decision_cierre" value="false" class="btn btn-danger fw-bold"><i class="bi bi-arrow-return-left"></i>Evidencia Insuficiente</button>
+                <button type="submit" name="decision_cierre" value="true" class="btn btn-dark fw-bold px-4 text-white"><i class="bi bi-check-circle"></i>Aprobar y Declarar Cierre</button>
+            </div>
+            {% elif ac.estado_flujo == 'CERRADO' %}
+            <p class="text-success fw-bold mb-0 text-center py-3"><i class="bi bi-patch-check-fill fs-1 d-block mb-2"></i>Acción Correctiva finalizada de manera exitosa.</p>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function agregarCampoFotoEvidencia() {
+    const container = document.getElementById('evidencia-fotos-inputs');
+    if (!container) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-flex align-items-center gap-2';
+    wrapper.innerHTML = `
+        <input type="file" name="evidencia_fotos[]" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp">
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">
+            <i class="bi bi-trash"></i>
+        </button>
+    `;
+    container.appendChild(wrapper);
+}
+</script>
+{% endblock %}
+

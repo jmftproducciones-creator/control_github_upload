@@ -1,0 +1,487 @@
+{% extends 'base.html' %}
+{% block title %}Detalle de control{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Detalle del control #{{ control.id }}</h2>
+        <p class="text-muted mb-0">Resumen completo del control cargado</p>
+    </div>
+    <div class="d-flex gap-2">
+        <span class="badge bg-success align-self-center p-2"><i class="bi bi-eye"></i> Vista Pública de Sólo Lectura</span>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    {% if control.tipo_control == 'A' %}
+    
+    {% if control.estado_flujo == 'A Confirmar' %}
+    <div class="col-12">
+        <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4">
+            <i class="bi bi-info-circle-fill text-info fs-3 me-3"></i>
+            <div>
+                <h6 class="mb-0 fw-bold">Auditoría Pendiente de Confirmación</h6>
+                <p class="mb-0 opacity-75 small">Esta auditoría está a la espera de ser confirmada por el área de Calidad.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="col-12">
+        <div class="card border-primary border-0 shadow-sm overflow-hidden mb-4">
+            <div class="card-body bg-primary bg-opacity-10 d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary text-white rounded-circle p-3 me-4 shadow-sm">
+                        <i class="bi bi-shield-check fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="text-primary fw-bold mb-1">Resumen de Auditoría</h5>
+                        <div class="d-flex flex-wrap gap-4 mt-2">
+                            <div><small class="text-muted d-block">Periodo</small> <strong>{{ control.fecha_control }}{% if control.fecha_fin_control %} al {{ control.fecha_fin_control }}{% endif %}</strong></div>
+                            <div><small class="text-muted d-block">Plaza / Sector</small> <strong>{{ control.planta }} - {{ control.sector }}</strong></div>
+                            <div><small class="text-muted d-block">Responsable Área</small> <strong>{{ control.responsable or 'No Asignado' }}</strong></div>
+                            <div><small class="text-muted d-block">Auditor Jefe</small> <strong>{{ control.auditor_jefe or 'N/A' }}</strong></div>
+                            {% if control.auditor_acompanante %}
+                            <div><small class="text-muted d-block">Acompañante</small> <strong>{{ control.auditor_acompanante }}</strong></div>
+                            {% endif %}
+                            {% if control.auditor_formacion %}
+                            <div><small class="text-muted d-block">Formación</small> <strong class="text-secondary small">{{ control.auditor_formacion }}</strong></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if control.riesgos_pdf_path %}
+                <div class="ps-4 border-start border-primary border-opacity-25">
+                    <a href="{{ url_for('static', filename='uploads/' + control.riesgos_pdf_path) }}" class="btn btn-primary rounded-pill px-4 shadow-sm" target="_blank">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> Ver Evaluación de Riesgos
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if control.objetivo_auditoria %}
+    <div class="col-12">
+        <div class="card border-info border-0 shadow-sm overflow-hidden mb-4">
+            <div class="card-header bg-info bg-opacity-10 py-3 border-0">
+                <h5 class="text-info fw-bold mb-0"><i class="bi bi-journal-check me-2"></i>Plan de Auditoría Interna</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Sistema de Gestión</small>
+                        <strong>{{ control.sistema_gestion_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Objetivo</small>
+                        <strong>{{ control.objetivo_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Criterios</small>
+                        <strong>{{ control.criterios_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Recursos Necesarios</small>
+                        <strong>{{ control.recursos_auditoria or '-' }}</strong>
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted d-block">Descripción de Actividades</small>
+                        <strong>{{ control.descripcion_actividades_auditoria or '-' }}</strong>
+                    </div>
+                </div>
+            </div>
+            {% if agenda_auditoria %}
+            <div class="card-footer bg-transparent border-top py-4">
+                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-list-task me-2"></i>Agenda de Auditoría Establecida</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Día</th>
+                                <th>Hora</th>
+                                <th>Actividad/Proceso</th>
+                                <th>Lugar</th>
+                                <th>Auditor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in agenda_auditoria %}
+                            <tr>
+                                <td>{{ row.dia }}</td>
+                                <td>{{ row.hora }}</td>
+                                <td>{{ row.actividad }}</td>
+                                <td>{{ row.lugar }}</td>
+                                <td>{{ row.auditor }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% elif control.agenda_auditoria_path %}
+            <div class="card-footer bg-light border-0 py-3">
+                <a href="{{ url_for('static', filename=control.agenda_auditoria_path) }}" class="btn btn-outline-info rounded-pill px-4" target="_blank">
+                    <i class="bi bi-calendar-event me-2"></i>Descargar Agenda de Auditoría (Documento Antiguo)
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if control.tipo_control != 'A' %}
+    <div class="col-lg-8">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-3">Datos generales</h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <strong>Fecha</strong>
+                        <div>{{ control.fecha_control }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Planta</strong>
+                        <div>{{ control.planta }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Sector</strong>
+                        <div>{{ control.sector }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Responsable</strong>
+                        <div>{{ control.responsable.strip() if control.responsable else '-' }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Sector con químicos</strong>
+                        <div>{{ 'Sí' if control.sector_tiene_quimicos else 'No' }}</div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <strong>Observaciones generales</strong>
+                <div class="mt-2">
+                    {{ control.observaciones_generales or 'Sin observaciones.' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-3">Resumen</h5>
+                <div class="mb-3">
+                    <strong>Personas entrevistadas:</strong> {{ control.total_personas_entrevistadas }}
+                </div>
+                <div class="mb-3">
+                    <strong>Requieren capacitación:</strong> {{ control.total_requieren_capacitacion }}
+                </div>
+                <div class="mb-3">
+                    <strong>Documentos controlados:</strong> {{ control.total_documentos_controlados }}
+                </div>
+                <div class="mb-3">
+                    <strong>Documentos correctos:</strong> {{ control.total_documentos_correctos }}
+                </div>
+                <div class="mb-0">
+                    <strong>Documentos incorrectos:</strong> {{ control.total_documentos_incorrectos }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2">Documentos del control</h5>
+                <p class="text-muted small mb-3">Distribución por estado.</p>
+                <div class="chart-box">
+                    <canvas id="chartDetalleDocumentos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2">Personal del control</h5>
+                <p class="text-muted small mb-3">Conocimiento, capacitación y necesidad.</p>
+                <div class="chart-box">
+                    <canvas id="chartDetallePersonal"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card content-card h-100">
+            <div class="card-body">
+                <h5 class="mb-2">Productos químicos del control</h5>
+                <p class="text-muted small mb-3">Correctos vs con incumplimiento.</p>
+                <div class="chart-box">
+                    <canvas id="chartDetalleQuimicos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card content-card mb-4">
+    <div class="card-body">
+        <h5 class="mb-3">Personal relevado</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Conoce gestión</th>
+                        <th>Capacitación</th>
+                        <th>Requiere capacitación</th>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in personal %}
+                    <tr>
+                        <td>{{ item.nombre_apellido }}</td>
+                        <td>{{ 'Sí' if item.conoce_gestion_documental else 'No' }}</td>
+                        <td>{{ 'Sí' if item.realizo_capacitacion else 'No' }}</td>
+                        <td>{{ 'Sí' if item.requiere_capacitacion else 'No' }}</td>
+                        <td>{{ item.observaciones or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No hay personal cargado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card content-card mb-4">
+    <div class="card-body">
+        <h5 class="mb-3">Documentos revisados</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Revisión</th>
+                        <th>Copia</th>
+                        <th>No cargado en Loyal</th>
+                        <th>Estado</th>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in documentos %}
+                    <tr>
+                        <td>{{ item.codigo_documento or '-' }}</td>
+                        <td>{{ item.revision or '-' }}</td>
+                        <td>{{ 'Sí' if item.copia_controlada else 'No' }}</td>
+                        <td>{{ 'Sí' if item.no_cargado_portal else 'No' }}</td>
+                        <td>{{ item.estado }}</td>
+                        <td>
+                            {{ item.observaciones or '-' }}
+                            {% if item.imagen_path %}
+                                <div class="mt-2 text-center">
+                                    <a href="{{ url_for('static', filename='uploads/documentos/' ~ item.imagen_path) }}" target="_blank" title="Ver foto a tamaño completo">
+                                        <img src="{{ url_for('static', filename='uploads/documentos/' ~ item.imagen_path) }}" alt="Foto adjunta" class="img-thumbnail" style="max-height: 100px; cursor: zoom-in;">
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay documentos cargados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card content-card">
+    <div class="card-body">
+        <h5 class="mb-3">Productos químicos</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Bajo llave</th>
+                        <th>Envase original</th>
+                        <th>Etiqueta correcta</th>
+                        <th>Hoja seguridad</th>
+                        <th>Observación</th>
+                        <th>Medida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in quimicos %}
+                    <tr>
+                        <td>{{ item.nombre_producto }}</td>
+                        <td>{{ 'Sí' if item.bajo_llave else 'No' }}</td>
+                        <td>{{ 'Sí' if item.envase_original else 'No' }}</td>
+                        <td>{{ 'Sí' if item.etiquetado_correcto else 'No' }}</td>
+                        <td>{{ 'Sí' if item.hoja_seguridad else 'No' }}</td>
+                        <td>{{ item.observaciones or '-' }}</td>
+                        <td>{{ item.medida or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No hay productos químicos cargados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if control.tipo_control != 'A' %}
+<script id="data-detalle-documentos" type="application/json">{{ documentos|tojson }}</script>
+<script id="data-detalle-personal" type="application/json">{{ personal|tojson }}</script>
+<script id="data-detalle-quimicos" type="application/json">{{ quimicos|tojson }}</script>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const documentosDetalle = JSON.parse(document.getElementById('data-detalle-documentos').textContent || '[]');
+const personalDetalle = JSON.parse(document.getElementById('data-detalle-personal').textContent || '[]');
+const quimicosDetalle = JSON.parse(document.getElementById('data-detalle-quimicos').textContent || '[]');
+
+// DOCUMENTOS
+const docsResumen = {
+    correcto: 0,
+    documento_obsoleto: 0,
+    sin_copia_controlada: 0,
+    documento_no_controlado: 0,
+    otro: 0
+};
+
+documentosDetalle.forEach(doc => {
+    const estado = doc.estado || 'otro';
+    if (docsResumen.hasOwnProperty(estado)) {
+        docsResumen[estado]++;
+    } else {
+        docsResumen.otro++;
+    }
+});
+
+const ctxDetalleDocumentos = document.getElementById('chartDetalleDocumentos');
+if (ctxDetalleDocumentos) {
+    new Chart(ctxDetalleDocumentos, {
+        type: 'doughnut',
+        data: {
+            labels: [
+                'Correcto',
+                'Documento obsoleto',
+                'Sin copia controlada',
+                'Documento no controlado',
+                'Otro'
+            ],
+            datasets: [{
+                data: [
+                    docsResumen.correcto,
+                    docsResumen.documento_obsoleto,
+                    docsResumen.sin_copia_controlada,
+                    docsResumen.documento_no_controlado,
+                    docsResumen.otro
+                ],
+                backgroundColor: ['#3b82f6', '#f59e0b', '#eab308', '#14b8a6', '#8b5cf6']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+// Helper to check for affirmative values
+const isTrue = (v) => v === 1 || v === '1' || String(v).toLowerCase() === 'sí' || String(v).toLowerCase() === 'si';
+
+// PERSONAL
+let conoceSi = 0, conoceNo = 0;
+let capSi = 0, capNo = 0;
+let requiereSi = 0, requiereNo = 0;
+
+personalDetalle.forEach(p => {
+    if (isTrue(p.conoce_gestion_documental)) conoceSi++; else conoceNo++;
+    if (isTrue(p.realizo_capacitacion)) capSi++; else capNo++;
+    if (isTrue(p.requiere_capacitacion)) requiereSi++; else requiereNo++;
+});
+
+const ctxDetallePersonal = document.getElementById('chartDetallePersonal');
+if (ctxDetallePersonal) {
+    new Chart(ctxDetallePersonal, {
+        type: 'bar',
+        data: {
+            labels: ['Conoce gestión', 'Capacitados', 'Requieren capacitación'],
+            datasets: [
+                {
+                    label: 'Sí',
+                    data: [conoceSi, capSi, requiereSi],
+                    backgroundColor: '#B72218'
+                },
+                {
+                    label: 'No',
+                    data: [conoceNo, capNo, requiereNo],
+                    backgroundColor: '#323232'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', display: true } },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 }, suggestedMax: 5 }
+            }
+        }
+    });
+}
+
+// QUIMICOS
+let quimicosCorrectos = 0;
+let quimicosIncorrectos = 0;
+
+quimicosDetalle.forEach(q => {
+    const correcto = isTrue(q.bajo_llave) && isTrue(q.envase_original) && 
+                     isTrue(q.etiquetado_correcto) && isTrue(q.hoja_seguridad);
+    if (correcto) quimicosCorrectos++; else quimicosIncorrectos++;
+});
+
+const ctxDetalleQuimicos = document.getElementById('chartDetalleQuimicos');
+if (ctxDetalleQuimicos) {
+    new Chart(ctxDetalleQuimicos, {
+        type: 'pie',
+        data: {
+            labels: ['Correctos', 'Con incumplimiento'],
+            datasets: [{
+                data: [quimicosCorrectos, quimicosIncorrectos],
+                backgroundColor: ['#323232', '#B72218']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+</script>
+{% endblock %}

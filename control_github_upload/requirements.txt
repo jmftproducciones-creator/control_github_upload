@@ -1,0 +1,5 @@
+﻿Flask>=3.0,<4
+Werkzeug>=3.0,<4
+mysql-connector-python>=9.0,<10
+gunicorn>=23.0,<24; platform_system != "Windows"
+python-dotenv>=1.0,<2
