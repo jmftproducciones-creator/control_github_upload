@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Iniciar Sesión - Control Documental{% endblock %}
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm border-0" style="border-radius: 12px;">
+            <div class="card-body p-4 p-md-5">
+                <h3 class="text-center mb-4 fw-bold" style="color: #2c3e50;">Iniciar Sesión</h3>
+                <form method="POST" action="{{ url_for('login') }}">
+                    <div class="mb-4">
+                        <label for="email" class="form-label text-muted fw-semibold">Usuario o correo</label>
+                        <input type="text" class="form-control form-control-lg bg-light border-0" id="email" name="email" placeholder="admin o nombre@empresa.com" required autofocus>
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label text-muted fw-semibold">Contraseña</label>
+                        <input type="password" class="form-control form-control-lg bg-light border-0" id="password" name="password" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">Ingresar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
